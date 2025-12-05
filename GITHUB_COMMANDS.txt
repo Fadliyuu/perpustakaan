@@ -1,0 +1,81 @@
+================================================================================
+                    COMMAND UNTUK PUSH KE GITHUB
+================================================================================
+
+Copy-paste command berikut di PowerShell/CMD setelah install Git:
+
+================================================================================
+
+# 1. Setup Git (Pertama Kali Saja)
+git config --global user.name "Nama Anda"
+git config --global user.email "email@example.com"
+
+================================================================================
+
+# 2. Masuk ke Folder Project
+cd "C:\Users\Faddd\OneDrive\Documents\web karin"
+
+================================================================================
+
+# 3. Initialize Git Repository
+git init
+
+================================================================================
+
+# 4. Add Semua File (File Sensitif Sudah Di-Ignore oleh .gitignore)
+git add .
+
+================================================================================
+
+# 5. Cek File yang Akan Di-Commit (PASTIKAN .env TIDAK ADA!)
+git status
+
+================================================================================
+
+# 6. Commit
+git commit -m "Initial commit - Sistem Perpustakaan Digital SMK Swasta Tunas Karya"
+
+================================================================================
+
+# 7. Buat Repository di GitHub Dulu:
+#    - Buka: https://github.com/new
+#    - Name: perpustakaan-yp-tunaskarya
+#    - Private: ✅ (centang)
+#    - JANGAN centang "Initialize with README"
+#    - Klik "Create repository"
+
+================================================================================
+
+# 8. Add Remote (GANTI YOUR_USERNAME dengan username GitHub Anda)
+git remote add origin https://github.com/YOUR_USERNAME/perpustakaan-yp-tunaskarya.git
+
+# Contoh:
+# git remote add origin https://github.com/fadli123/perpustakaan-yp-tunaskarya.git
+
+================================================================================
+
+# 9. Push ke GitHub
+git branch -M main
+git push -u origin main
+
+# Jika diminta login, masukkan:
+# Username: username GitHub Anda
+# Password: Personal Access Token (bukan password GitHub!)
+# Cara buat token: https://github.com/settings/tokens
+
+================================================================================
+
+# 10. Setelah Push, Update File (Jika Ada Perubahan)
+git add .
+git commit -m "Update: deskripsi perubahan"
+git push
+
+================================================================================
+
+CATATAN:
+- File .env dan firebase-service-account.json sudah di-ignore
+- Tidak akan ter-commit ke GitHub
+- AMAN untuk di-push!
+
+================================================================================
+

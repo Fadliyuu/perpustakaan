@@ -1,0 +1,104 @@
+================================================================================
+                    COPY-PASTE UNTUK RAILWAY VARIABLES
+================================================================================
+
+Buka Railway → Project → Variables → New Variable
+Copy-paste satu per satu:
+
+================================================================================
+
+1. PORT
+---
+4000
+
+================================================================================
+
+2. NODE_ENV
+---
+production
+
+================================================================================
+
+3. FRONTEND_URL
+---
+https://your-frontend.vercel.app
+(Update setelah frontend deploy ke Vercel)
+
+================================================================================
+
+4. FIREBASE_PROJECT_ID
+---
+peminjaman-buku-223b6
+
+================================================================================
+
+5. FIREBASE_PRIVATE_KEY
+---
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCsmA9iKiznPZIQ
+i6e/FVZ5LsJfKHiOUIZJZ/8US8BBHkL4HM3UPpC5J/oe3rxOb9+xwxOMle5cI+Lm
+2ww2oWVOIc4oIwF7YHfHA7LLkrejHoxoZv0QMfY7wIuLNzf0ZOGWd0YZKiS2zHEg
+Qog+3vtIB5aItEccjSFgfVHTUVMlolJSLRezHNEoWXyYQpOYeeYdjdoKQIQ4sArh
+kHKOxH6asLVdW6P3QAlAeQHGD6BVx7wIc1ErT3nFKWm9qcEZ4+m+Lk5owKOQOeJA
+XAWJuWiwWx0Viz+MT7BjBVaw1DLp7egJp8nZVRaefXQV+yqmd+e9JaIYSNyjM4f9
+aroM1RBTAgMBAAECggEAUsHs6mx/sHeI8K8ORaUVHDFMGTW+LLs20L7xhAlYi8DX
+asHg/grr+SROnfu+PjwNfl6kIo6Hxx2cAIb7Abz85ux1vjAe10pn1IEU++EDdc9B
+kxQC9v+F6pvGLYBSL7kppCzX61wWU6KPAeF1E/R2d9DPoQgUav/PB8W/dPyzSkES
+5Uh1+3nxMin3DKg2KxymXuayKygPZ1AQpKWM+JitXdqQHovYd9lhuWYX6BDzMW/O
+yEtadn57QG7oM8bxZoGeGijiwqHCLOOnrY3vy38R8RV6Hiu39NTJHwRJSHWncbED
+lOj3p0HHHwHwfUPQXFGBcy9lQJmYj5TMHB41a27KPQKBgQDo3UAhpYtIDknX+cMs
+NXll0ab6U/3y+n8Pr6P0JGpIOF3GB3Bi3nUbRXcpI/L9S5ZYl+RL5zhv5XO4pNnq
+XdrtSRnECGZk5/DpdvdQ/AWx8+3YrieOBePCuwL8G3rKTUrUbPw9yWRVanZ+jJOl
+3WlMgSegY4s2L+ZADX/WDWPJRwKBgQC9vd/tu1rC1t4MpzREFMjjn1VzMH4Ssz2a
+x4M0CmnvfSOGyVfTp7Ec23gwJmAtbwOdkG9TEP7bk/Q8Sm9mI0/1Kfk899UoI6MF
+1fAlcLSihwG6QQ+58bBUthQ3eVicbt2+3ELopDYo7i/JDyfGek5LKjF/R8pm+bVO
+ahJllUzGlQKBgAkJJMbpdIkcPNNLlr4taQOBahhGkBEQlUOXjiYYD6OzxDe97Cd5
++FNRk7kd8vzPJQtVAX/Mfg0heycMBoSolaklcAGCTe7WbSux+RDEZrgr/eutfk1t
+fxP8S7Zanp4g96lcfUEsgl8qHWT1sXj7KW3ViSMZGbrFiwqrO22j4V5bAoGANMDO
+un0Fnfg5YlE2kdspg0ewbUdFNhPJg/gGfXiLvX8QWpAuL/WGo5xNTS3OPbOI0Mzw
+dqraANig5gZX9JDK0UHrPs004WUPFTdG/lHYlvtsOomOQsd0nAjHlCjTvyJ/2mnI
+3H+TY0vd00u4ZlFo5TME8ftWxcyVYQjStpWM9AUCgYEAsao9HVQhdj+uo7+kKSm3
+DEr2xIxis1Pu67+DCn986w8yZAlACFCK6T6hX9E8lbDtaJfmECBa8Z30FXkBlngx
+N9JbAY39TL3zPlJZwcPbIHWQ/otW6E7b3HibuQ9LQ0oLJd9MfiBy4TeiCrnWWMzK
+Zh8JPM5L9RLXg7YErCnMCsc=
+-----END PRIVATE KEY-----
+
+================================================================================
+
+6. FIREBASE_CLIENT_EMAIL
+---
+firebase-adminsdk-fbsvc@peminjaman-buku-223b6.iam.gserviceaccount.com
+
+================================================================================
+
+7. CLOUDINARY_CLOUD_NAME
+---
+your-cloud-name
+(Ganti dengan credentials Cloudinary Anda)
+
+================================================================================
+
+8. CLOUDINARY_API_KEY
+---
+your-api-key
+(Ganti dengan credentials Cloudinary Anda)
+
+================================================================================
+
+9. CLOUDINARY_API_SECRET
+---
+your-api-secret
+(Ganti dengan credentials Cloudinary Anda)
+
+================================================================================
+
+10. JWT_SECRET
+---
+change-this-to-random-secret-min-32-chars-12345678901234567890
+(GANTI dengan random string yang kuat minimal 32 karakter!)
+
+================================================================================
+
+SELESAI! Setelah semua variable di-set, Railway akan auto-restart.
+================================================================================
+

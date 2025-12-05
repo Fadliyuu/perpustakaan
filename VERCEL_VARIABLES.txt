@@ -1,0 +1,24 @@
+================================================================================
+                    COPY-PASTE UNTUK VERCEL VARIABLES
+================================================================================
+
+Buka Vercel → Project → Settings → Environment Variables → Add
+
+================================================================================
+
+Name: VITE_API_BASE_URL
+
+Value: https://your-backend.railway.app/api
+(Ganti "your-backend.railway.app" dengan URL Railway backend Anda)
+
+================================================================================
+
+CONTOH:
+Jika Railway URL Anda: https://perpustakaan-production.railway.app
+Maka value-nya: https://perpustakaan-production.railway.app/api
+
+================================================================================
+
+SELESAI! Setelah variable di-set, Vercel akan auto-redeploy.
+================================================================================
+

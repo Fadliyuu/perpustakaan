@@ -1,0 +1,105 @@
+================================================================================
+                    PUSH KE GITHUB SEKARANG (Git Sudah Ada!)
+================================================================================
+
+Git sudah terinstall di: C:\Program Files\Git\cmd
+Tapi belum di PATH, jadi kita pakai cara ini:
+
+================================================================================
+
+CARA 1: TAMBAHKAN GIT KE PATH DULU (RECOMMENDED)
+-------------------------------------------------
+
+1. Tekan Win + R
+2. Ketik: sysdm.cpl
+3. Enter
+4. Tab "Advanced" → "Environment Variables"
+5. Di "System variables", cari "Path" → Edit
+6. New → Tambahkan: C:\Program Files\Git\cmd
+7. OK semua
+8. Restart PowerShell
+
+Setelah itu, lanjut ke "CARA 2" di bawah.
+
+================================================================================
+
+CARA 2: PAKAI GIT LANGSUNG (TANPA FIX PATH)
+--------------------------------------------
+
+Buka PowerShell di folder project:
+C:\Users\Faddd\OneDrive\Documents\web karin
+
+Lalu jalankan command berikut (copy-paste satu per satu):
+
+================================================================================
+
+# 1. Setup Git (Pertama Kali Saja)
+& "C:\Program Files\Git\cmd\git.exe" config --global user.name "Nama Anda"
+& "C:\Program Files\Git\cmd\git.exe" config --global user.email "email@example.com"
+
+================================================================================
+
+# 2. Initialize Repository
+& "C:\Program Files\Git\cmd\git.exe" init
+
+================================================================================
+
+# 3. Add Semua File
+& "C:\Program Files\Git\cmd\git.exe" add .
+
+================================================================================
+
+# 4. Cek File yang Akan Di-Commit (PASTIKAN .env TIDAK ADA!)
+& "C:\Program Files\Git\cmd\git.exe" status
+
+================================================================================
+
+# 5. Commit
+& "C:\Program Files\Git\cmd\git.exe" commit -m "Initial commit - Sistem Perpustakaan Digital SMK Swasta Tunas Karya"
+
+================================================================================
+
+# 6. Buat Repository di GitHub Dulu:
+#    - Buka: https://github.com/new
+#    - Name: perpustakaan-yp-tunaskarya
+#    - Private: ✅ (centang)
+#    - JANGAN centang "Initialize with README"
+#    - Create repository
+
+================================================================================
+
+# 7. Add Remote (GANTI YOUR_USERNAME dengan username GitHub Anda)
+& "C:\Program Files\Git\cmd\git.exe" remote add origin https://github.com/YOUR_USERNAME/perpustakaan-yp-tunaskarya.git
+
+# Contoh:
+# & "C:\Program Files\Git\cmd\git.exe" remote add origin https://github.com/fadli123/perpustakaan-yp-tunaskarya.git
+
+================================================================================
+
+# 8. Push ke GitHub
+& "C:\Program Files\Git\cmd\git.exe" branch -M main
+& "C:\Program Files\Git\cmd\git.exe" push -u origin main
+
+# Jika diminta login:
+# Username: username GitHub Anda
+# Password: Personal Access Token (bukan password!)
+# Cara buat token: https://github.com/settings/tokens
+#   - Generate new token (classic)
+#   - Select scopes: repo (centang semua)
+#   - Generate token
+#   - Copy token dan pakai sebagai password
+
+================================================================================
+
+ATAU LEBIH MUDAH: PAKAI GITHUB DESKTOP!
+----------------------------------------
+Tidak perlu command line, tidak perlu fix PATH!
+
+1. Download: https://desktop.github.com/
+2. Install & Login
+3. File → Add Local Repository
+4. Publish Repository
+5. Done!
+
+================================================================================
+

@@ -1,0 +1,11 @@
+PORT=4000
+JWT_SECRET=123131
+GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json
+
+# Cloudinary Configuration (untuk upload QR code)
+# Daftar di https://cloudinary.com/users/register_free
+# Setelah daftar, ambil credentials dari Dashboard
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+

@@ -1,0 +1,149 @@
+================================================================================
+                    PANDUAN SETUP ENVIRONMENT VARIABLES
+================================================================================
+
+FILE YANG SUDAH DIBUAT:
+-----------------------
+1. backend/env.txt              → Untuk Railway (Production)
+2. backend/env-local.txt        → Untuk local development (rename jadi .env)
+3. frontend/env.txt             → Untuk local development
+4. frontend/env-production.txt  → Untuk Vercel (Production)
+
+================================================================================
+                        CARA MENGGUNAKAN
+================================================================================
+
+A. SETUP LOCAL DEVELOPMENT
+---------------------------
+
+1. BACKEND:
+   - Buka file: backend/env-local.txt
+   - Copy semua isinya
+   - Buat file baru: backend/.env
+   - Paste isinya ke backend/.env
+   - Edit bagian Cloudinary dan JWT_SECRET sesuai kebutuhan Anda
+
+2. FRONTEND:
+   - Buka file: frontend/env.txt
+   - Copy semua isinya
+   - Buat file baru: frontend/.env
+   - Paste isinya ke frontend/.env
+
+================================================================================
+
+B. SETUP RAILWAY (Backend Production)
+--------------------------------------
+
+1. Buka https://railway.app
+2. Login → New Project → Deploy from GitHub
+3. Pilih repository Anda
+4. Settings → Variables → Add Variable
+5. Copy-paste dari file: backend/env.txt
+
+   VARIABLES YANG PERLU DI-SET:
+   ----------------------------
+   PORT=4000
+   NODE_ENV=production
+   FRONTEND_URL=https://your-frontend.vercel.app
+   
+   FIREBASE_PROJECT_ID=peminjaman-buku-223b6
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@peminjaman-buku-223b6.iam.gserviceaccount.com
+   
+   CLOUDINARY_CLOUD_NAME=your-cloud-name
+   CLOUDINARY_API_KEY=your-api-key
+   CLOUDINARY_API_SECRET=your-api-secret
+   
+   JWT_SECRET=change-this-to-random-secret-min-32-chars
+
+6. UPDATE SETELAH FRONTEND DEPLOY:
+   - Setelah frontend deploy ke Vercel, dapatkan URL-nya
+   - Update FRONTEND_URL di Railway dengan URL Vercel
+
+================================================================================
+
+C. SETUP VERCEL (Frontend Production)
+-------------------------------------
+
+1. Buka https://vercel.com
+2. Login → Add New Project → Import GitHub repo
+3. Settings → Environment Variables → Add
+4. Copy-paste dari file: frontend/env-production.txt
+
+   VARIABLE YANG PERLU DI-SET:
+   ---------------------------
+   VITE_API_BASE_URL=https://your-backend.railway.app/api
+
+5. UPDATE URL:
+   - Setelah backend deploy ke Railway, dapatkan URL-nya
+   - Update VITE_API_BASE_URL dengan URL Railway + /api
+
+================================================================================
+
+D. YANG PERLU DI-GANTI
+-----------------------
+
+1. CLOUDINARY CREDENTIALS:
+   - Daftar di: https://cloudinary.com/users/register_free
+   - Ambil credentials dari Dashboard
+   - Ganti di backend/env.txt atau backend/.env:
+     * CLOUDINARY_CLOUD_NAME
+     * CLOUDINARY_API_KEY
+     * CLOUDINARY_API_SECRET
+
+2. JWT_SECRET:
+   - Generate random string minimal 32 karakter
+   - Bisa pakai: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   - Ganti di semua file env
+
+3. URL PRODUCTION:
+   - Setelah deploy, update:
+     * FRONTEND_URL di Railway dengan URL Vercel
+     * VITE_API_BASE_URL di Vercel dengan URL Railway + /api
+
+================================================================================
+
+E. CATATAN PENTING
+------------------
+
+⚠️  JANGAN COMMIT FILE .env KE GIT!
+⚠️  File .env sudah di-ignore oleh .gitignore
+⚠️  File .txt ini AMAN untuk di-commit (tidak berisi credentials real)
+
+✅ File yang AMAN di-commit:
+   - backend/env.txt
+   - backend/env-local.txt
+   - frontend/env.txt
+   - frontend/env-production.txt
+   - ENV_SETUP_GUIDE.txt (file ini)
+
+❌ File yang TIDAK BOLEH di-commit:
+   - backend/.env
+   - frontend/.env
+   - backend/firebase-service-account.json
+
+================================================================================
+
+F. VERIFIKASI
+-------------
+
+Setelah setup, test:
+
+1. LOCAL:
+   cd backend
+   npm start
+   # Test: http://localhost:4000/health
+
+   cd frontend
+   npm run dev
+   # Test: http://localhost:5173
+
+2. PRODUCTION:
+   # Test backend: https://your-backend.railway.app/health
+   # Test frontend: https://your-frontend.vercel.app
+
+================================================================================
+
+SELESAI! 🎉
+================================================================================
+

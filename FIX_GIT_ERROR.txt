@@ -1,0 +1,67 @@
+================================================================================
+                    FIX ERROR: 'perpustakaan/' does not have a commit
+================================================================================
+
+MASALAH: Folder perpustakaan/ punya .git sendiri (nested repository)
+SOLUSI: Hapus .git dari folder perpustakaan atau ignore folder tersebut
+
+================================================================================
+                        CARA FIX (Pilih Salah Satu)
+================================================================================
+
+CARA 1: HAPUS .GIT DARI FOLDER PERPUSTAKAAN (RECOMMENDED)
+----------------------------------------------------------
+
+Jalankan di CMD/PowerShell di folder project:
+
+1. Hapus .git dari folder perpustakaan:
+   rmdir /s /q "perpustakaan\.git"
+
+2. Setelah itu, coba lagi:
+   git add .
+   git status
+
+================================================================================
+
+CARA 2: HAPUS FOLDER PERPUSTAKAAN (Jika Tidak Diperlukan)
+-----------------------------------------------------------
+
+Jika folder perpustakaan adalah duplikat/backup yang tidak diperlukan:
+
+1. Hapus folder perpustakaan:
+   rmdir /s /q "perpustakaan"
+
+2. Setelah itu, coba lagi:
+   git add .
+   git status
+
+================================================================================
+
+CARA 3: IGNORE FOLDER PERPUSTAKAAN (Jika Ingin Tetap Ada)
+---------------------------------------------------------
+
+Folder perpustakaan/ sudah ditambahkan ke .gitignore
+Tapi karena sudah ter-track, perlu dihapus dari git dulu:
+
+1. Hapus dari git cache:
+   git rm -r --cached perpustakaan
+
+2. Commit perubahan:
+   git commit -m "Remove perpustakaan folder from git"
+
+3. Setelah itu, folder perpustakaan akan di-ignore
+
+================================================================================
+
+SETELAH FIX, LANJUTKAN PUSH:
+-----------------------------
+
+1. git add .
+2. git status (cek file yang akan di-commit)
+3. git commit -m "Initial commit - Sistem Perpustakaan Digital"
+4. git remote add origin https://github.com/YOUR_USERNAME/perpustakaan-yp-tunaskarya.git
+5. git branch -M main
+6. git push -u origin main
+
+================================================================================
+
