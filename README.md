@@ -120,3 +120,4 @@ Dikembangkan untuk SMK Swasta Tunas Karya, Batang Kuis, Deli Serdang, Sumatera U
 **Selamat menggunakan! 🎉**
 
 "# perpustakaan" 
+"# perpus-tunas-karya" 
