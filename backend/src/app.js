@@ -22,6 +22,19 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Perpustakaan API - Backend is running',
+    status: 'ok',
+    time: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      api: '/api'
+    }
+  });
+});
+
 // Simple health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
