@@ -36,9 +36,12 @@ function QrScanner({ onResult, onClose }) {
       }
 
       try {
-        // Initialize Html5Qrcode
-        const html5QrCode = new Html5Qrcode(scannerIdRef.current);
+        // Initialize Html5Qrcode with verbose mode for debugging
+        const html5QrCode = new Html5Qrcode(scannerIdRef.current, {
+          verbose: true // Enable verbose logging
+        });
         html5QrCodeRef.current = html5QrCode;
+        console.log('✅ Html5Qrcode initialized with verbose mode');
 
         // Get available cameras
         if (isMounted) setScanStatus('Mencari kamera...');
@@ -110,25 +113,37 @@ function QrScanner({ onResult, onClose }) {
         element.innerHTML = '';
       }
 
-      // Minimal configuration - simplest possible
+      // Optimized configuration for better detection
+      // Use larger QR box for better detection (80% of viewport)
       const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-        // Let library use default formats (all supported)
+        fps: 30, // Higher FPS for faster detection
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+          // Use 80% of the smaller dimension for better detection
+          const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.min(minDimension * 0.8, 500); // Max 500px
+          console.log(`📐 Viewfinder: ${viewfinderWidth}x${viewfinderHeight}, QR Box: ${size}x${size}`);
+          return {
+            width: size,
+            height: size
+          };
+        },
+        aspectRatio: 1.0,
+        disableFlip: false // Allow flipping for better detection
       };
 
       console.log('🚀 Starting scanner...');
       console.log('📷 Camera ID:', cameraId);
-      console.log('⚙️ Config:', config);
+      console.log('⚙️ Config:', JSON.stringify(config, null, 2));
 
       await html5QrCode.start(
         cameraId,
         config,
         (decodedText, decodedResult) => {
-          console.log('✅✅✅ QR CODE DETECTED! ✅✅✅');
+          console.log('✅✅✅ CODE DETECTED! ✅✅✅');
           console.log('📝 Decoded text:', decodedText);
           console.log('📊 Decoded result:', decodedResult);
+          console.log('🔍 Format:', decodedResult?.result?.format?.formatName || 'Unknown');
+          console.log('📏 Bounds:', decodedResult?.result?.bounds);
           
           // Validate decoded text
           if (!decodedText || decodedText.trim().length === 0) {
@@ -136,33 +151,48 @@ function QrScanner({ onResult, onClose }) {
             return;
           }
           
-          setScanStatus(`✅ Berhasil: ${decodedText.substring(0, 30)}...`);
+          const trimmedText = decodedText.trim();
+          console.log('✅ Valid code detected:', trimmedText);
+          setScanStatus(`✅ Berhasil: ${trimmedText.substring(0, 30)}${trimmedText.length > 30 ? '...' : ''}`);
           
           if (onResult) {
-            onResult(decodedText.trim());
+            console.log('📤 Calling onResult callback...');
+            onResult(trimmedText);
             // Auto close after successful scan
             setTimeout(() => {
+              console.log('🛑 Stopping scanner after successful scan...');
               stopScanning();
               if (onClose) {
                 onClose();
               }
-            }, 500);
+            }, 300);
+          } else {
+            console.warn('⚠️ onResult callback is not defined!');
           }
         },
-        (errorMessage) => {
-          // Log ALL errors for debugging
-          console.log('🔍 Scan attempt:', errorMessage);
-          
-          // Only show important errors
-          const isCommonError = 
-            errorMessage.includes('No MultiFormat Readers') || 
+        (errorMessage, error) => {
+          // Log ALL scan attempts for debugging (even "not found" errors)
+          // This helps us see if scanner is actually working
+          const isCommonScanningError = 
             errorMessage.includes('NotFoundException') ||
             errorMessage.includes('QR code parse error') ||
             errorMessage.includes('No QR code found') ||
-            errorMessage === 'QR code parse error';
+            errorMessage === 'QR code parse error' ||
+            errorMessage.includes('No MultiFormat Readers') ||
+            errorMessage.includes('No barcode detected');
           
-          if (!isCommonError) {
-            console.warn('⚠️ Non-common error:', errorMessage);
+          // Log every 10th "not found" error to avoid spam, but log all other errors
+          if (isCommonScanningError) {
+            // Only log occasionally to avoid console spam
+            if (Math.random() < 0.1) { // Log 10% of "not found" errors
+              console.log('🔍 Scanning... (no code detected yet)');
+            }
+          } else {
+            // Log all non-common errors
+            console.warn('⚠️ Scanner error:', errorMessage);
+            if (error) {
+              console.warn('⚠️ Error details:', error);
+            }
             setLastError(errorMessage);
             
             // Handle critical errors
@@ -184,6 +214,28 @@ function QrScanner({ onResult, onClose }) {
       
       setScanStatus('✅ Scanner aktif - Arahkan kamera ke QR code');
       console.log('✅ Scanner started successfully');
+      
+      // Verify video element is present and playing
+      setTimeout(() => {
+        const videoElement = document.querySelector(`#${scannerIdRef.current} video`);
+        if (videoElement) {
+          console.log('✅ Video element found:', {
+            playing: !videoElement.paused,
+            readyState: videoElement.readyState,
+            videoWidth: videoElement.videoWidth,
+            videoHeight: videoElement.videoHeight
+          });
+          
+          if (videoElement.paused) {
+            console.warn('⚠️ Video is paused, trying to play...');
+            videoElement.play().catch(err => {
+              console.error('❌ Error playing video:', err);
+            });
+          }
+        } else {
+          console.warn('⚠️ Video element not found in scanner container');
+        }
+      }, 1000);
     } catch (err) {
       console.error('❌ Error starting scanner:', err);
       console.error('Error details:', {
