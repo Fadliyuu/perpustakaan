@@ -1,44 +1,55 @@
 import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 function QrScanner({ onResult, onClose }) {
   const scannerIdRef = useRef(`qr-scanner-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const html5QrCodeRef = useRef(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [cameraId, setCameraId] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [scanStatus, setScanStatus] = useState('Initializing...');
+  const [lastError, setLastError] = useState(null);
 
   useEffect(() => {
-    const element = document.getElementById(scannerIdRef.current);
-    if (!element) {
-      console.error('Scanner element not found:', scannerIdRef.current);
-      return;
-    }
-
-    // Check if browser supports getUserMedia
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const errorMsg = 'Browser tidak mendukung akses kamera. Pastikan menggunakan browser modern (Chrome, Firefox, Safari, Edge) dan HTTPS.';
-      console.error(errorMsg);
-      alert(errorMsg);
-      if (onClose) {
-        onClose();
+    let isMounted = true;
+    
+    const initScanner = async () => {
+      // Wait for DOM to be ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const element = document.getElementById(scannerIdRef.current);
+      if (!element) {
+        console.error('❌ Scanner element not found:', scannerIdRef.current);
+        return;
       }
-      return;
-    }
 
-    // Initialize Html5Qrcode
-    const html5QrCode = new Html5Qrcode(scannerIdRef.current);
-    html5QrCodeRef.current = html5QrCode;
+      // Check if browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = 'Browser tidak mendukung akses kamera. Pastikan menggunakan browser modern (Chrome, Firefox, Safari, Edge) dan HTTPS.';
+        console.error('❌', errorMsg);
+        alert(errorMsg);
+        if (onClose) {
+          onClose();
+        }
+        return;
+      }
 
-    // Get available cameras
-    setScanStatus('Mencari kamera...');
-    Html5Qrcode.getCameras()
-      .then((devices) => {
+      try {
+        // Initialize Html5Qrcode
+        const html5QrCode = new Html5Qrcode(scannerIdRef.current);
+        html5QrCodeRef.current = html5QrCode;
+
+        // Get available cameras
+        if (isMounted) setScanStatus('Mencari kamera...');
+        const devices = await Html5Qrcode.getCameras();
+        
+        if (!isMounted) return;
+        
         if (devices && devices.length > 0) {
+          console.log('✅ Found cameras:', devices);
           setAvailableCameras(devices);
+          
           // Prefer back camera on mobile
           const backCamera = devices.find(device => 
             device.label.toLowerCase().includes('back') || 
@@ -47,37 +58,51 @@ function QrScanner({ onResult, onClose }) {
           );
           const defaultCamera = backCamera || devices[0];
           setSelectedCameraId(defaultCamera.id);
-          setScanStatus('Memulai scanner...');
-          // Small delay to ensure DOM is ready
-          setTimeout(() => {
-            startScanning(html5QrCode, defaultCamera.id);
-          }, 100);
+          
+          if (isMounted) {
+            setScanStatus('Memulai scanner...');
+            // Start scanning automatically
+            setTimeout(() => {
+              startScanning(html5QrCode, defaultCamera.id);
+            }, 200);
+          }
         } else {
           alert('Tidak ada kamera yang tersedia.');
           if (onClose) {
             onClose();
           }
         }
-      })
-      .catch((err) => {
-        console.error('Error getting cameras:', err);
-        setScanStatus('Error: Gagal mengakses kamera');
-        alert('Gagal mengakses kamera. Pastikan izin kamera sudah diberikan.');
+      } catch (err) {
+        console.error('❌ Error initializing scanner:', err);
+        if (isMounted) {
+          setScanStatus('Error: Gagal mengakses kamera');
+          setLastError(err.message);
+        }
+        alert('Gagal mengakses kamera. Pastikan izin kamera sudah diberikan.\n\nError: ' + err.message);
         if (onClose) {
           onClose();
         }
-      });
+      }
+    };
+
+    initScanner();
 
     return () => {
+      isMounted = false;
       stopScanning();
     };
   }, []);
 
   const startScanning = async (html5QrCode, cameraId) => {
+    if (!html5QrCode || !cameraId) {
+      console.error('❌ Cannot start: missing html5QrCode or cameraId');
+      return;
+    }
+
     try {
       setIsScanning(true);
-      setCameraId(cameraId);
       setScanStatus('Memindai...');
+      setLastError(null);
 
       // Clear previous content
       const element = document.getElementById(scannerIdRef.current);
@@ -85,35 +110,25 @@ function QrScanner({ onResult, onClose }) {
         element.innerHTML = '';
       }
 
-      // Use simpler, more reliable configuration
+      // Minimal configuration - simplest possible
       const config = {
         fps: 10,
-        qrbox: { width: 250, height: 250 }, // Fixed size for better reliability
-        aspectRatio: 1.0,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E
-        ],
-        // Disable flip for better detection
-        disableFlip: false,
-        // Enable verbose for debugging
-        verbose: true
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+        // Let library use default formats (all supported)
       };
 
-      console.log('Starting scanner with config:', config);
-      console.log('Camera ID:', cameraId);
+      console.log('🚀 Starting scanner...');
+      console.log('📷 Camera ID:', cameraId);
+      console.log('⚙️ Config:', config);
 
       await html5QrCode.start(
         cameraId,
         config,
         (decodedText, decodedResult) => {
-          console.log('✅ QR Code/Barcode scanned successfully!');
-          console.log('Decoded text:', decodedText);
-          console.log('Decoded result:', decodedResult);
+          console.log('✅✅✅ QR CODE DETECTED! ✅✅✅');
+          console.log('📝 Decoded text:', decodedText);
+          console.log('📊 Decoded result:', decodedResult);
           
           // Validate decoded text
           if (!decodedText || decodedText.trim().length === 0) {
@@ -121,7 +136,7 @@ function QrScanner({ onResult, onClose }) {
             return;
           }
           
-          setScanStatus(`✅ Berhasil: ${decodedText.substring(0, 20)}...`);
+          setScanStatus(`✅ Berhasil: ${decodedText.substring(0, 30)}...`);
           
           if (onResult) {
             onResult(decodedText.trim());
@@ -135,23 +150,24 @@ function QrScanner({ onResult, onClose }) {
           }
         },
         (errorMessage) => {
-          // Only log important errors
+          // Log ALL errors for debugging
+          console.log('🔍 Scan attempt:', errorMessage);
+          
+          // Only show important errors
           const isCommonError = 
             errorMessage.includes('No MultiFormat Readers') || 
             errorMessage.includes('NotFoundException') ||
             errorMessage.includes('QR code parse error') ||
-            errorMessage.includes('QR code parse error, error =') ||
             errorMessage.includes('No QR code found') ||
-            errorMessage.includes('QR code parse error, error =') ||
-            errorMessage.includes('QR code parse error, error = NotFoundException') ||
             errorMessage === 'QR code parse error';
           
           if (!isCommonError) {
-            console.warn('Scan attempt (normal):', errorMessage);
+            console.warn('⚠️ Non-common error:', errorMessage);
+            setLastError(errorMessage);
             
             // Handle critical errors
             if (errorMessage.includes('Permission') || errorMessage.includes('NotAllowedError')) {
-              console.error('❌ Camera permission denied:', errorMessage);
+              console.error('❌ Camera permission denied');
               setScanStatus('❌ Izin kamera ditolak');
               alert('Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.');
               stopScanning();
@@ -159,26 +175,35 @@ function QrScanner({ onResult, onClose }) {
                 onClose();
               }
             } else if (errorMessage.includes('NotReadableError') || errorMessage.includes('TrackStartError')) {
-              console.error('❌ Camera not readable:', errorMessage);
+              console.error('❌ Camera not readable');
               setScanStatus('❌ Kamera tidak dapat dibaca');
             }
           }
         }
       );
       
-      setScanStatus('✅ Scanner aktif - Arahkan ke QR code');
+      setScanStatus('✅ Scanner aktif - Arahkan kamera ke QR code');
+      console.log('✅ Scanner started successfully');
     } catch (err) {
       console.error('❌ Error starting scanner:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
+      
       setIsScanning(false);
       setScanStatus(`❌ Error: ${err.message}`);
+      setLastError(err.message);
       
       if (err.message.includes('Permission') || err.message.includes('NotAllowedError')) {
         alert('Izin kamera ditolak. Silakan:\n1. Klik ikon gembok di address bar\n2. Izinkan akses kamera\n3. Refresh halaman dan coba lagi');
       } else if (err.message.includes('NotFoundError')) {
         alert('Kamera tidak ditemukan. Pastikan kamera tersedia.');
       } else {
-        alert('Gagal memulai scanner: ' + err.message);
+        alert('Gagal memulai scanner:\n\n' + err.message + '\n\nCek console untuk detail lebih lanjut.');
       }
+      
       if (onClose) {
         onClose();
       }
@@ -189,22 +214,22 @@ function QrScanner({ onResult, onClose }) {
     if (html5QrCodeRef.current && isScanning) {
       try {
         setScanStatus('Menghentikan scanner...');
+        console.log('🛑 Stopping scanner...');
         await html5QrCodeRef.current.stop();
         await html5QrCodeRef.current.clear();
         setScanStatus('Scanner dihentikan');
+        console.log('✅ Scanner stopped');
       } catch (err) {
-        console.warn('Error stopping scanner:', err);
+        console.warn('⚠️ Error stopping scanner:', err);
       }
       setIsScanning(false);
-      setCameraId(null);
     }
   };
 
   const handleCameraChange = async (newCameraId) => {
     if (isScanning) {
       await stopScanning();
-      // Wait a bit before starting new camera
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     setSelectedCameraId(newCameraId);
     if (html5QrCodeRef.current) {
@@ -282,11 +307,21 @@ function QrScanner({ onResult, onClose }) {
             <p style={{ 
               margin: '4px 0 0 0', 
               fontSize: '13px', 
-              color: '#64748b',
+              color: isScanning ? '#10b981' : '#64748b',
               fontWeight: '500'
             }}>
               {scanStatus}
             </p>
+            {lastError && (
+              <p style={{ 
+                margin: '4px 0 0 0', 
+                fontSize: '11px', 
+                color: '#ef4444',
+                fontFamily: 'monospace'
+              }}>
+                Error: {lastError}
+              </p>
+            )}
           </div>
           <button 
             type="button" 
@@ -386,14 +421,6 @@ function QrScanner({ onResult, onClose }) {
                 transition: 'all 0.2s ease',
                 boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
               }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
-              }}
             >
               ⏹️ Stop Scanning
             </button>
@@ -424,22 +451,31 @@ function QrScanner({ onResult, onClose }) {
                   : 'none',
                 opacity: selectedCameraId ? 1 : 0.6
               }}
-              onMouseOver={(e) => {
-                if (selectedCameraId) {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
-                }
-              }}
-              onMouseOut={(e) => {
-                if (selectedCameraId) {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
-                }
-              }}
             >
               ▶️ Start Scanning
             </button>
           )}
+        </div>
+
+        {/* Debug Info */}
+        <div style={{
+          padding: '12px 16px',
+          background: '#f8fafc',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '16px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          color: '#64748b'
+        }}>
+          <div><strong>Debug Info:</strong></div>
+          <div>Scanner ID: {scannerIdRef.current}</div>
+          <div>Is Scanning: {isScanning ? 'Yes' : 'No'}</div>
+          <div>Camera ID: {selectedCameraId ? selectedCameraId.substring(0, 20) + '...' : 'None'}</div>
+          <div>Cameras Found: {availableCameras.length}</div>
+          <div style={{ marginTop: '8px', fontSize: '10px', color: '#94a3b8' }}>
+            💡 Buka Browser Console (F12) untuk melihat log detail
+          </div>
         </div>
 
         {/* Tips */}
@@ -456,7 +492,7 @@ function QrScanner({ onResult, onClose }) {
             fontSize: '13px',
             lineHeight: '1.6'
           }}>
-            💡 <strong>Tips:</strong> Pastikan kode jelas, cukup terang, dan dalam jarak optimal (10-30 cm). Pastikan QR code berada di dalam kotak biru.
+            💡 <strong>Tips:</strong> Pastikan kode jelas, cukup terang, dan dalam jarak optimal (10-30 cm). Pastikan QR code berada di dalam kotak biru. Buka Console (F12) untuk melihat log.
           </p>
         </div>
       </div>
