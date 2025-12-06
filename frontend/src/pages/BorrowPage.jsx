@@ -456,16 +456,44 @@ export default function BorrowPage() {
 
       {showScanner && (
         <QrScanner
-          onResult={(code) => {
+          onResult={async (code) => {
             const trimmed = (code || '').trim();
             if (!trimmed) return;
-            if (!items.find((i) => i.code === trimmed)) {
-              setItems((prev) => [...prev, { code: trimmed, title: trimmed }]);
-              setMessage(`✅ Kode ${trimmed} berhasil ditambahkan dari kamera.`);
-            } else {
+            
+            // Check if already in list
+            if (items.find((i) => i.code === trimmed)) {
               setMessage(`⚠️ Kode ${trimmed} sudah ada di daftar.`);
+              setShowScanner(false);
+              return;
             }
-            setShowScanner(false);
+
+            // Search book by code
+            setLoading(true);
+            try {
+              const res = await api.get(`/books/by-code/${trimmed}`);
+              const book = res.data;
+              
+              // Use item code if available, otherwise use bookId
+              const itemCode = book.item?.uniqueCode || book.id;
+              
+              if (items.find((i) => i.code === itemCode)) {
+                setMessage(`⚠️ Buku "${book.title}" sudah ada di daftar.`);
+              } else {
+                setItems((prev) => [...prev, { 
+                  code: itemCode, 
+                  title: book.title, 
+                  author: book.author 
+                }]);
+                setMessage(`✅ Buku "${book.title}" berhasil ditambahkan.`);
+              }
+            } catch (err) {
+              console.error('Error searching book:', err);
+              const errorMsg = err.response?.data?.message || 'Buku tidak ditemukan';
+              setMessage(`❌ ${errorMsg}`);
+            } finally {
+              setLoading(false);
+              setShowScanner(false);
+            }
           }}
           onClose={() => setShowScanner(false)}
         />

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import QrScanner from '../components/QrScanner.jsx';
 
 export default function ReturnPage() {
+  const navigate = useNavigate();
   const [searchMode, setSearchMode] = useState('student'); // 'student', 'receipt', 'found'
   const [studentQuery, setStudentQuery] = useState('');
   const [receiptQuery, setReceiptQuery] = useState('');
@@ -38,8 +40,23 @@ export default function ReturnPage() {
     if (!receiptNumber) return;
     try {
       const res = await api.get(`/transactions/by-receipt/${receiptNumber}`);
-      setSelectedTransaction(res.data);
-      loadTransactionItems(res.data.id);
+      const tx = res.data;
+      setSelectedTransaction(tx);
+      
+      // Check transaction status
+      if (tx.status === 'complete' || tx.status === 'completed') {
+        // Already returned - show message and receipt button
+        setMessage('✅ Transaksi ini sudah selesai dikembalikan.');
+        setTransactionItems([]);
+        setSelectedItems({});
+      } else if (tx.status === 'pending_payment' || tx.status === 'partially_returned') {
+        // Has issues - show message with resolve option
+        setMessage('⚠️ Transaksi ini memiliki masalah (denda belum dibayar atau beberapa buku belum dikembalikan).');
+        loadTransactionItems(tx.id);
+      } else {
+        // Ongoing - normal return flow
+        loadTransactionItems(tx.id);
+      }
     } catch (err) {
       setMessage('❌ Transaksi tidak ditemukan');
       console.error(err);
@@ -335,6 +352,17 @@ export default function ReturnPage() {
                 <span className="info-value">{selectedTransaction.receiptNumber || '-'}</span>
               </div>
               <div className="info-row">
+                <span className="info-label">Status:</span>
+                <span className="info-value">
+                  {selectedTransaction.status === 'ongoing' && '🟢 Sedang Dipinjam'}
+                  {selectedTransaction.status === 'complete' && '✅ Selesai'}
+                  {selectedTransaction.status === 'completed' && '✅ Selesai'}
+                  {selectedTransaction.status === 'pending_payment' && '⚠️ Menunggu Pembayaran'}
+                  {selectedTransaction.status === 'partially_returned' && '⚠️ Sebagian Dikembalikan'}
+                  {!['ongoing', 'complete', 'completed', 'pending_payment', 'partially_returned'].includes(selectedTransaction.status) && selectedTransaction.status}
+                </span>
+              </div>
+              <div className="info-row">
                 <span className="info-label">Tanggal Pinjam:</span>
                 <span className="info-value">
                   {selectedTransaction.borrowDate
@@ -350,13 +378,125 @@ export default function ReturnPage() {
                     : '-'}
                 </span>
               </div>
+              {selectedTransaction.returnDate && (
+                <div className="info-row">
+                  <span className="info-label">Tanggal Kembali:</span>
+                  <span className="info-value">
+                    {new Date(selectedTransaction.returnDate).toLocaleDateString('id-ID')}
+                  </span>
+                </div>
+              )}
             </div>
+            
+            {/* Status Messages */}
+            {(selectedTransaction.status === 'complete' || selectedTransaction.status === 'completed') && (
+              <div style={{ 
+                marginTop: '16px', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                borderRadius: '12px',
+                border: '2px solid #86efac',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '8px' }}>✅</div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#166534', fontWeight: '700' }}>
+                  Buku Sudah Dikembalikan
+                </h4>
+                <p style={{ margin: '0 0 16px 0', color: '#15803d', fontSize: '14px' }}>
+                  Transaksi ini sudah selesai. Silakan cetak struk jika diperlukan.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get(`/transactions/${selectedTransaction.id}/return-receipt`, {
+                        responseType: 'text'
+                      });
+                      const w = window.open('', '_blank');
+                      if (w) {
+                        w.document.open();
+                        w.document.write(res.data);
+                        w.document.close();
+                      } else {
+                        alert('Popup diblokir. Silakan izinkan popup untuk browser ini.');
+                      }
+                    } catch (err) {
+                      console.error('Receipt error:', err);
+                      alert('Gagal membuka struk. Silakan cek console untuk detail.');
+                    }
+                  }}
+                >
+                  🖨️ Tampilkan Struk
+                </button>
+              </div>
+            )}
+            
+            {(selectedTransaction.status === 'pending_payment' || selectedTransaction.status === 'partially_returned') && (
+              <div style={{ 
+                marginTop: '16px', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                borderRadius: '12px',
+                border: '2px solid #fcd34d',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '8px' }}>⚠️</div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#92400e', fontWeight: '700' }}>
+                  Transaksi Memiliki Masalah
+                </h4>
+                <p style={{ margin: '0 0 16px 0', color: '#78350f', fontSize: '14px' }}>
+                  {selectedTransaction.status === 'pending_payment' 
+                    ? 'Siswa belum menyelesaikan pembayaran denda atau beberapa buku belum dikembalikan.'
+                    : 'Beberapa buku belum dikembalikan atau ada masalah lainnya.'}
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={async () => {
+                      try {
+                        const res = await api.get(`/transactions/${selectedTransaction.id}/return-receipt`, {
+                          responseType: 'text'
+                        });
+                        const w = window.open('', '_blank');
+                        if (w) {
+                          w.document.open();
+                          w.document.write(res.data);
+                          w.document.close();
+                        } else {
+                          alert('Popup diblokir. Silakan izinkan popup untuk browser ini.');
+                        }
+                      } catch (err) {
+                        console.error('Receipt error:', err);
+                        alert('Gagal membuka struk. Silakan cek console untuk detail.');
+                      }
+                    }}
+                  >
+                    🖨️ Tampilkan Struk
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      navigate('/app/transactions');
+                    }}
+                  >
+                    📋 Lihat Detail Transaksi
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Transaction Items */}
-      {selectedTransaction && transactionItems.length > 0 && (
+      {/* Transaction Items - Only show if transaction is ongoing or has issues */}
+      {selectedTransaction && 
+       transactionItems.length > 0 && 
+       (selectedTransaction.status === 'ongoing' || 
+        selectedTransaction.status === 'pending_payment' || 
+        selectedTransaction.status === 'partially_returned') && (
         <div className="form-card">
           <div className="form-card-header">
             <span className="form-card-icon">📚</span>

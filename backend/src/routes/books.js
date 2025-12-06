@@ -52,6 +52,59 @@ router.get('/search', auth(['admin', 'officer', 'teacher', 'student']), async (r
   }
 });
 
+// Get book by code (bookId or item uniqueCode)
+// Returns book info with available item if found
+router.get('/by-code/:code', auth(['admin', 'officer', 'teacher', 'student']), async (req, res) => {
+  try {
+    const { code } = req.params;
+    if (!code) return res.status(400).json({ message: 'Code is required' });
+
+    // Try as bookId first
+    const bookDoc = await booksCol.doc(code).get();
+    if (bookDoc.exists) {
+      const bookData = bookDoc.data();
+      // Find an available item for this book
+      const itemSnap = await itemsCol
+        .where('bookId', '==', code)
+        .where('status', '==', 'available')
+        .limit(1)
+        .get();
+      
+      const item = itemSnap.empty ? null : { id: itemSnap.docs[0].id, ...itemSnap.docs[0].data() };
+      
+      return res.json({
+        id: bookDoc.id,
+        ...bookData,
+        item, // Available item if any
+        codeType: 'bookId'
+      });
+    }
+
+    // Try as item uniqueCode
+    const itemSnap = await itemsCol.where('uniqueCode', '==', code).limit(1).get();
+    if (!itemSnap.empty) {
+      const itemDoc = itemSnap.docs[0];
+      const itemData = itemDoc.data();
+      
+      // Get book info
+      const bookDoc = await booksCol.doc(itemData.bookId).get();
+      if (bookDoc.exists) {
+        return res.json({
+          id: bookDoc.id,
+          ...bookDoc.data(),
+          item: { id: itemDoc.id, ...itemData },
+          codeType: 'uniqueCode'
+        });
+      }
+    }
+
+    return res.status(404).json({ message: 'Buku tidak ditemukan' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to fetch book by code' });
+  }
+});
+
 // Create book (auto-generate items if copies > 0)
 router.post('/', auth(['admin', 'officer']), async (req, res) => {
   try {
