@@ -74,35 +74,53 @@ function QrScanner({ onResult, onClose }) {
       await html5QrCode.start(
         cameraId,
         {
-          fps: 30,
+          fps: 10, // Lower FPS for better stability and detection
           qrbox: (viewfinderWidth, viewfinderHeight) => {
-            // Use 80% of the smaller dimension for better detection
+            // Use 60-70% of the smaller dimension for optimal detection
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.min(minEdge * 0.8, 400);
+            // Optimal size: 250-300px works best for most codes
+            const qrboxSize = Math.min(Math.max(minEdge * 0.65, 200), 300);
+            console.log('QR Box size:', qrboxSize, 'Viewfinder:', viewfinderWidth, 'x', viewfinderHeight);
             return {
               width: qrboxSize,
               height: qrboxSize
             };
           },
           aspectRatio: 1.0,
+          // Focus on QR_CODE first, then barcodes
           formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.CODE_93
+            Html5QrcodeSupportedFormats.UPC_E
           ],
+          // Better video constraints for detection
           videoConstraints: {
-            facingMode: "environment"
-          }
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          // Experimental features for better detection
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          },
+          // Disable verbose to reduce console noise
+          verbose: false
         },
         (decodedText, decodedResult) => {
-          console.log('QR Code/Barcode scanned:', decodedText);
+          console.log('✅ QR Code/Barcode scanned successfully:', decodedText);
+          console.log('Decoded result:', decodedResult);
+          
+          // Validate decoded text
+          if (!decodedText || decodedText.trim().length === 0) {
+            console.warn('Empty decoded text, ignoring...');
+            return;
+          }
+          
           if (onResult) {
-            onResult(decodedText);
+            onResult(decodedText.trim());
             // Auto close after successful scan
             setTimeout(() => {
               stopScanning();
@@ -113,18 +131,29 @@ function QrScanner({ onResult, onClose }) {
           }
         },
         (errorMessage) => {
-          // Ignore common scan errors
-          if (!errorMessage.includes('No MultiFormat Readers') && 
-              !errorMessage.includes('NotFoundException') &&
-              !errorMessage.includes('QR code parse error')) {
-            // Only log important errors
+          // Only log important errors, ignore common scan attempt errors
+          const isCommonError = 
+            errorMessage.includes('No MultiFormat Readers') || 
+            errorMessage.includes('NotFoundException') ||
+            errorMessage.includes('QR code parse error') ||
+            errorMessage.includes('QR code parse error, error =') ||
+            errorMessage.includes('No QR code found') ||
+            errorMessage.includes('QR code parse error');
+          
+          if (!isCommonError) {
+            console.warn('Scan attempt error (normal):', errorMessage);
+            
+            // Handle critical errors
             if (errorMessage.includes('Permission') || errorMessage.includes('NotAllowedError')) {
-              console.error('Camera permission denied:', errorMessage);
+              console.error('❌ Camera permission denied:', errorMessage);
               alert('Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.');
               stopScanning();
               if (onClose) {
                 onClose();
               }
+            } else if (errorMessage.includes('NotReadableError') || errorMessage.includes('TrackStartError')) {
+              console.error('❌ Camera not readable:', errorMessage);
+              // Don't alert for this, just log - might be temporary
             }
           }
         }
@@ -420,16 +449,32 @@ function QrScanner({ onResult, onClose }) {
           }
         }
         /* Style for Html5Qrcode generated elements */
+        #${scannerIdRef.current} {
+          position: relative;
+        }
         #${scannerIdRef.current} video {
           width: 100% !important;
           height: auto !important;
           border-radius: 16px;
+          object-fit: cover;
         }
         #${scannerIdRef.current} canvas {
-          display: none;
+          display: none !important;
         }
         #${scannerIdRef.current} .qr-shaded-region {
           border-radius: 16px;
+          border: 3px solid #3b82f6 !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+        }
+        #${scannerIdRef.current} #qr-shaded-region {
+          border-radius: 16px;
+          border: 3px solid #3b82f6 !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+        }
+        /* Ensure scanner area is visible */
+        #${scannerIdRef.current} > div {
+          width: 100% !important;
+          height: auto !important;
         }
       `}</style>
     </div>
