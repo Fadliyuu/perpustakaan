@@ -132,18 +132,32 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="card card-elevated">
-      <div className="card-header">
+    <div className="accounts-page">
+      <div className="page-header">
         <div>
-          <h2>Manajemen Akun</h2>
-          <p>Tambah, edit, atau hapus akun admin / petugas / magang.</p>
+          <h2 className="page-title">🧑‍💼 Manajemen Akun</h2>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>
+            Tambah, edit, atau hapus akun admin / petugas / magang
+          </p>
         </div>
-        <div className="badge badge-soft">Total: {users.length}</div>
+        <div className="badge badge-soft" style={{ fontSize: '14px', padding: '8px 16px' }}>
+          Total: {users.length}
+        </div>
       </div>
 
-      {message && <div className={`alert alert-${messageType}`}>{message}</div>}
+      {message && (
+        <div className={`alert alert-${messageType}`} style={{ marginBottom: '20px' }}>
+          {message}
+        </div>
+      )}
 
-      <form className="form-grid account-form" onSubmit={handleSubmit}>
+      <div className="card card-elevated" style={{ marginBottom: '24px' }}>
+        <div className="card-header">
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#0f172a' }}>
+            {editId ? '✏️ Edit Akun' : '➕ Tambah Akun Baru'}
+          </h3>
+        </div>
+        <form className="form-grid account-form" onSubmit={handleSubmit}>
         <label>
           Username
           <input
@@ -194,9 +208,16 @@ export default function AccountsPage() {
             </button>
           )}
         </div>
-      </form>
+        </form>
+      </div>
 
-      <div className="table-wrapper">
+      <div className="card card-elevated">
+        <div className="card-header">
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#0f172a' }}>
+            📋 Daftar Akun
+          </h3>
+        </div>
+        <div className="table-wrapper">
         <table className="table">
           <thead>
             <tr>
@@ -245,6 +266,7 @@ export default function AccountsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
