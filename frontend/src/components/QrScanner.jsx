@@ -9,6 +9,7 @@ function QrScanner({ onResult, onClose }) {
   const [cameraId, setCameraId] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
+  const [scanStatus, setScanStatus] = useState('Initializing...');
 
   useEffect(() => {
     const element = document.getElementById(scannerIdRef.current);
@@ -33,6 +34,7 @@ function QrScanner({ onResult, onClose }) {
     html5QrCodeRef.current = html5QrCode;
 
     // Get available cameras
+    setScanStatus('Mencari kamera...');
     Html5Qrcode.getCameras()
       .then((devices) => {
         if (devices && devices.length > 0) {
@@ -45,7 +47,11 @@ function QrScanner({ onResult, onClose }) {
           );
           const defaultCamera = backCamera || devices[0];
           setSelectedCameraId(defaultCamera.id);
-          startScanning(html5QrCode, defaultCamera.id);
+          setScanStatus('Memulai scanner...');
+          // Small delay to ensure DOM is ready
+          setTimeout(() => {
+            startScanning(html5QrCode, defaultCamera.id);
+          }, 100);
         } else {
           alert('Tidak ada kamera yang tersedia.');
           if (onClose) {
@@ -55,6 +61,7 @@ function QrScanner({ onResult, onClose }) {
       })
       .catch((err) => {
         console.error('Error getting cameras:', err);
+        setScanStatus('Error: Gagal mengakses kamera');
         alert('Gagal mengakses kamera. Pastikan izin kamera sudah diberikan.');
         if (onClose) {
           onClose();
@@ -70,54 +77,51 @@ function QrScanner({ onResult, onClose }) {
     try {
       setIsScanning(true);
       setCameraId(cameraId);
+      setScanStatus('Memindai...');
+
+      // Clear previous content
+      const element = document.getElementById(scannerIdRef.current);
+      if (element) {
+        element.innerHTML = '';
+      }
+
+      // Use simpler, more reliable configuration
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 }, // Fixed size for better reliability
+        aspectRatio: 1.0,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E
+        ],
+        // Disable flip for better detection
+        disableFlip: false,
+        // Enable verbose for debugging
+        verbose: true
+      };
+
+      console.log('Starting scanner with config:', config);
+      console.log('Camera ID:', cameraId);
 
       await html5QrCode.start(
         cameraId,
-        {
-          fps: 10, // Lower FPS for better stability and detection
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            // Use 60-70% of the smaller dimension for optimal detection
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            // Optimal size: 250-300px works best for most codes
-            const qrboxSize = Math.min(Math.max(minEdge * 0.65, 200), 300);
-            console.log('QR Box size:', qrboxSize, 'Viewfinder:', viewfinderWidth, 'x', viewfinderHeight);
-            return {
-              width: qrboxSize,
-              height: qrboxSize
-            };
-          },
-          aspectRatio: 1.0,
-          // Focus on QR_CODE first, then barcodes
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.QR_CODE,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E
-          ],
-          // Better video constraints for detection
-          videoConstraints: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          // Experimental features for better detection
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          },
-          // Disable verbose to reduce console noise
-          verbose: false
-        },
+        config,
         (decodedText, decodedResult) => {
-          console.log('✅ QR Code/Barcode scanned successfully:', decodedText);
+          console.log('✅ QR Code/Barcode scanned successfully!');
+          console.log('Decoded text:', decodedText);
           console.log('Decoded result:', decodedResult);
           
           // Validate decoded text
           if (!decodedText || decodedText.trim().length === 0) {
-            console.warn('Empty decoded text, ignoring...');
+            console.warn('⚠️ Empty decoded text, ignoring...');
             return;
           }
+          
+          setScanStatus(`✅ Berhasil: ${decodedText.substring(0, 20)}...`);
           
           if (onResult) {
             onResult(decodedText.trim());
@@ -127,25 +131,28 @@ function QrScanner({ onResult, onClose }) {
               if (onClose) {
                 onClose();
               }
-            }, 300);
+            }, 500);
           }
         },
         (errorMessage) => {
-          // Only log important errors, ignore common scan attempt errors
+          // Only log important errors
           const isCommonError = 
             errorMessage.includes('No MultiFormat Readers') || 
             errorMessage.includes('NotFoundException') ||
             errorMessage.includes('QR code parse error') ||
             errorMessage.includes('QR code parse error, error =') ||
             errorMessage.includes('No QR code found') ||
-            errorMessage.includes('QR code parse error');
+            errorMessage.includes('QR code parse error, error =') ||
+            errorMessage.includes('QR code parse error, error = NotFoundException') ||
+            errorMessage === 'QR code parse error';
           
           if (!isCommonError) {
-            console.warn('Scan attempt error (normal):', errorMessage);
+            console.warn('Scan attempt (normal):', errorMessage);
             
             // Handle critical errors
             if (errorMessage.includes('Permission') || errorMessage.includes('NotAllowedError')) {
               console.error('❌ Camera permission denied:', errorMessage);
+              setScanStatus('❌ Izin kamera ditolak');
               alert('Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.');
               stopScanning();
               if (onClose) {
@@ -153,14 +160,18 @@ function QrScanner({ onResult, onClose }) {
               }
             } else if (errorMessage.includes('NotReadableError') || errorMessage.includes('TrackStartError')) {
               console.error('❌ Camera not readable:', errorMessage);
-              // Don't alert for this, just log - might be temporary
+              setScanStatus('❌ Kamera tidak dapat dibaca');
             }
           }
         }
       );
+      
+      setScanStatus('✅ Scanner aktif - Arahkan ke QR code');
     } catch (err) {
-      console.error('Error starting scanner:', err);
+      console.error('❌ Error starting scanner:', err);
       setIsScanning(false);
+      setScanStatus(`❌ Error: ${err.message}`);
+      
       if (err.message.includes('Permission') || err.message.includes('NotAllowedError')) {
         alert('Izin kamera ditolak. Silakan:\n1. Klik ikon gembok di address bar\n2. Izinkan akses kamera\n3. Refresh halaman dan coba lagi');
       } else if (err.message.includes('NotFoundError')) {
@@ -177,8 +188,10 @@ function QrScanner({ onResult, onClose }) {
   const stopScanning = async () => {
     if (html5QrCodeRef.current && isScanning) {
       try {
+        setScanStatus('Menghentikan scanner...');
         await html5QrCodeRef.current.stop();
         await html5QrCodeRef.current.clear();
+        setScanStatus('Scanner dihentikan');
       } catch (err) {
         console.warn('Error stopping scanner:', err);
       }
@@ -190,6 +203,8 @@ function QrScanner({ onResult, onClose }) {
   const handleCameraChange = async (newCameraId) => {
     if (isScanning) {
       await stopScanning();
+      // Wait a bit before starting new camera
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     setSelectedCameraId(newCameraId);
     if (html5QrCodeRef.current) {
@@ -267,9 +282,10 @@ function QrScanner({ onResult, onClose }) {
             <p style={{ 
               margin: '4px 0 0 0', 
               fontSize: '13px', 
-              color: '#64748b' 
+              color: '#64748b',
+              fontWeight: '500'
             }}>
-              {isScanning ? 'Sedang memindai...' : 'Siap untuk memindai'}
+              {scanStatus}
             </p>
           </div>
           <button 
@@ -307,7 +323,7 @@ function QrScanner({ onResult, onClose }) {
             <select
               value={selectedCameraId || ''}
               onChange={(e) => handleCameraChange(e.target.value)}
-              disabled={!isScanning}
+              disabled={isScanning}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -316,7 +332,8 @@ function QrScanner({ onResult, onClose }) {
                 fontSize: '14px',
                 background: 'white',
                 color: '#0f172a',
-                cursor: 'pointer',
+                cursor: isScanning ? 'not-allowed' : 'pointer',
+                opacity: isScanning ? 0.6 : 1,
                 transition: 'all 0.2s ease'
               }}
             >
@@ -388,26 +405,36 @@ function QrScanner({ onResult, onClose }) {
                   startScanning(html5QrCodeRef.current, selectedCameraId);
                 }
               }}
+              disabled={!selectedCameraId}
               style={{
                 flex: 1,
                 padding: '12px 20px',
                 borderRadius: '12px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                background: selectedCameraId 
+                  ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+                  : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
                 color: 'white',
                 fontSize: '15px',
                 fontWeight: '600',
-                cursor: 'pointer',
+                cursor: selectedCameraId ? 'pointer' : 'not-allowed',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                boxShadow: selectedCameraId 
+                  ? '0 4px 12px rgba(59, 130, 246, 0.3)'
+                  : 'none',
+                opacity: selectedCameraId ? 1 : 0.6
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+                if (selectedCameraId) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+                }
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                if (selectedCameraId) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                }
               }}
             >
               ▶️ Start Scanning
@@ -429,7 +456,7 @@ function QrScanner({ onResult, onClose }) {
             fontSize: '13px',
             lineHeight: '1.6'
           }}>
-            💡 <strong>Tips:</strong> Pastikan kode jelas, cukup terang, dan dalam jarak optimal (6-40 cm). Hasil scan akan otomatis dimasukkan.
+            💡 <strong>Tips:</strong> Pastikan kode jelas, cukup terang, dan dalam jarak optimal (10-30 cm). Pastikan QR code berada di dalam kotak biru.
           </p>
         </div>
       </div>
@@ -451,6 +478,7 @@ function QrScanner({ onResult, onClose }) {
         /* Style for Html5Qrcode generated elements */
         #${scannerIdRef.current} {
           position: relative;
+          width: 100% !important;
         }
         #${scannerIdRef.current} video {
           width: 100% !important;
@@ -461,17 +489,16 @@ function QrScanner({ onResult, onClose }) {
         #${scannerIdRef.current} canvas {
           display: none !important;
         }
-        #${scannerIdRef.current} .qr-shaded-region {
-          border-radius: 16px;
-          border: 3px solid #3b82f6 !important;
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
-        }
+        /* QR box styling */
         #${scannerIdRef.current} #qr-shaded-region {
-          border-radius: 16px;
           border: 3px solid #3b82f6 !important;
           box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
         }
-        /* Ensure scanner area is visible */
+        #${scannerIdRef.current} .qr-shaded-region {
+          border: 3px solid #3b82f6 !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+        }
+        /* Ensure scanner container is visible */
         #${scannerIdRef.current} > div {
           width: 100% !important;
           height: auto !important;
