@@ -4,7 +4,15 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 export default function MainLayout() {
   const navigate = useNavigate();
   const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : null;
+  let user = null;
+  if (userStr) {
+    try {
+      user = JSON.parse(userStr);
+    } catch {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -36,6 +44,10 @@ export default function MainLayout() {
           <NavLink to="/app/books" className="nav-link">
             <span className="nav-icon">📖</span>
             <span>Data Buku</span>
+          </NavLink>
+          <NavLink to="/app/scan" className="nav-link">
+            <span className="nav-icon">📷</span>
+            <span>Scan QR</span>
           </NavLink>
           <NavLink to="/app/borrow" className="nav-link">
             <span className="nav-icon">📤</span>
@@ -115,6 +127,10 @@ export default function MainLayout() {
           <NavLink to="/app/books" className="bottom-nav-link">
             <span className="bottom-nav-icon">📖</span>
             <span className="bottom-nav-label">Buku</span>
+          </NavLink>
+          <NavLink to="/app/scan" className="bottom-nav-link">
+            <span className="bottom-nav-icon">📷</span>
+            <span className="bottom-nav-label">Scan</span>
           </NavLink>
           <NavLink to="/app/borrow" className="bottom-nav-link">
             <span className="bottom-nav-icon">📤</span>

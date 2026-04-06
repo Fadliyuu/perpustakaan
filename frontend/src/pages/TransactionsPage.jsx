@@ -53,7 +53,7 @@ export default function TransactionsPage() {
       // Determine receipt type based on transaction status
       const tx = transactions.find((t) => t.id === id);
       const isReturned = tx && (tx.status === 'completed' || tx.status === 'has_problem_resolved' || tx.status === 'has_problem_pending' || tx.status === 'partially_returned');
-      
+
       // Always use return-receipt for returned transactions, receipt for ongoing
       const endpoint = isReturned ? `/transactions/${id}/return-receipt` : `/transactions/${id}/receipt`;
       const res = await api.get(endpoint, {

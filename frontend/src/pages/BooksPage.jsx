@@ -398,9 +398,9 @@ export default function BooksPage() {
                 </td>
               </tr>
             ))}
-              {books.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '40px' }}>
+            {books.length === 0 && (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '40px' }}>
                   <div className="empty-state">
                     <div className="empty-icon">📚</div>
                     <p>Belum ada data buku</p>

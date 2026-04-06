@@ -1,9 +1,25 @@
 import axios from 'axios';
 
-// Bisa diatur lewat file .env Vite, misalnya:
-// VITE_API_BASE_URL="http://localhost:4000/api"
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+function resolveApiBase() {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL;
+
+  // Jika ini mode dev, atau env var dikosongkan, lebih aman gunakan path relatif '/api'
+  // Di dev mode (lokal), Vite proxy sudah diatur untuk merutekan '/api' ke backend localhost:4000
+  // Di production (Vercel), vercel.json juga merutekan '/api' ke backend
+  if (import.meta.env.PROD) {
+    if (fromEnv && !fromEnv.includes('localhost')) {
+      return fromEnv;
+    }
+    // Jika tidak ada env var, ATAU env var lupa diganti dari localhost saat deploy, 
+    // paksa kembali ke relatif url.
+    return '/api';
+  }
+
+  // Developer mode
+  return fromEnv || '/api';
+}
+
+const API_BASE = resolveApiBase();
 
 const api = axios.create({
   baseURL: API_BASE
@@ -25,7 +41,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
       const isPublicRoute = currentPath === '/login' || currentPath === '/';
-      
+
       // Only clear token and redirect if we're in a protected route
       // Don't interfere with public routes trying to access data
       if (!isPublicRoute) {
@@ -43,5 +59,4 @@ api.interceptors.response.use(
 );
 
 export default api;
-
 

@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import QrScanner from '../components/QrScanner.jsx';
 
 export default function BorrowPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [studentQuery, setStudentQuery] = useState('');
   const [studentResults, setStudentResults] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -18,6 +21,31 @@ export default function BorrowPage() {
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [successData, setSuccessData] = useState(null); // { transactionId, receiptNumber, barcode }
+
+  useEffect(() => {
+    const preset = location.state?.presetBorrowItems;
+    if (!Array.isArray(preset) || preset.length === 0) return;
+    setItems((prev) => {
+      const next = [...prev];
+      for (const row of preset) {
+        if (!row?.code) continue;
+        if (!next.find((i) => i.code === row.code)) {
+          next.push({
+            code: row.code,
+            title: row.title || row.code,
+            author: row.author
+          });
+        }
+      }
+      return next;
+    });
+    const added = preset.filter((r) => r?.code).length;
+    setMessage(
+      `✅ ${added} buku dari halaman Scan QR ditambahkan ke daftar. Pilih siswa untuk melanjutkan.`
+    );
+    navigate('/app/borrow', { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkronisasi dari Scan QR
+  }, [location.state, navigate]);
 
   const searchStudents = async (q) => {
     if (!q) {
@@ -236,7 +264,7 @@ export default function BorrowPage() {
             {/* Or Input Code Manually */}
             <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
               <label className="form-label">
-                Atau Masukkan Kode Buku (QR / Barcode)
+                Atau Masukkan Kode Buku (dari QR)
                 <div className="code-input-group">
                   <input
                     className="form-input code-input"
@@ -262,7 +290,7 @@ export default function BorrowPage() {
                         setMessage('');
                       }}
                     >
-                      📷 Scan Kamera
+                      📷 Scan QR
                     </button>
                   </div>
                 </div>
@@ -458,32 +486,37 @@ export default function BorrowPage() {
         <QrScanner
           onResult={async (code) => {
             const trimmed = (code || '').trim();
-            if (!trimmed) return;
-            
-            // Check if already in list
+            if (!trimmed) {
+              setShowScanner(false);
+              return;
+            }
+
             if (items.find((i) => i.code === trimmed)) {
               setMessage(`⚠️ Kode ${trimmed} sudah ada di daftar.`);
               setShowScanner(false);
               return;
             }
 
-            // Search book by code
             setLoading(true);
             try {
-              const res = await api.get(`/books/by-code/${trimmed}`);
+              const res = await api.get(
+                `/books/by-code/${encodeURIComponent(trimmed)}`
+              );
               const book = res.data;
-              
-              // Use item code if available, otherwise use bookId
+
               const itemCode = book.item?.uniqueCode || book.id;
-              
+
               if (items.find((i) => i.code === itemCode)) {
                 setMessage(`⚠️ Buku "${book.title}" sudah ada di daftar.`);
               } else {
-                setItems((prev) => [...prev, { 
-                  code: itemCode, 
-                  title: book.title, 
-                  author: book.author 
-                }]);
+                setItems((prev) => [
+                  ...prev,
+                  {
+                    code: itemCode,
+                    title: book.title,
+                    author: book.author
+                  }
+                ]);
                 setMessage(`✅ Buku "${book.title}" berhasil ditambahkan.`);
               }
             } catch (err) {

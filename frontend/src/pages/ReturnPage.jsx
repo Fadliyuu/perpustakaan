@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api.js';
 import QrScanner from '../components/QrScanner.jsx';
+import { normalizeScannedText } from '../utils/scanNormalize.js';
 
 export default function ReturnPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchMode, setSearchMode] = useState('student'); // 'student', 'receipt', 'found'
   const [studentQuery, setStudentQuery] = useState('');
   const [receiptQuery, setReceiptQuery] = useState('');
@@ -37,12 +39,15 @@ export default function ReturnPage() {
   };
 
   const searchByReceipt = async (receiptNumber) => {
-    if (!receiptNumber) return;
+    const clean = normalizeScannedText(String(receiptNumber || ''));
+    if (!clean) return;
     try {
-      const res = await api.get(`/transactions/by-receipt/${receiptNumber}`);
+      const res = await api.get(
+        `/transactions/by-receipt/${encodeURIComponent(clean)}`
+      );
       const tx = res.data;
       setSelectedTransaction(tx);
-      
+
       // Check transaction status
       if (tx.status === 'complete' || tx.status === 'completed') {
         // Already returned - show message and receipt button
@@ -63,11 +68,23 @@ export default function ReturnPage() {
     }
   };
 
+  useEffect(() => {
+    const r = location.state?.openReceipt;
+    if (!r) return;
+    const clean = normalizeScannedText(String(r));
+    if (!clean) return;
+    setSearchMode('receipt');
+    setReceiptQuery(clean);
+    searchByReceipt(clean);
+    navigate('/app/return', { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hanya reaksi ke navigasi dari Scan QR
+  }, [location.state, navigate]);
+
   const loadTransactionItems = async (transactionId) => {
     try {
       const res = await api.get(`/transactions/${transactionId}/items`);
       setTransactionItems(res.data || []);
-      
+
       // Initialize selected items
       const initial = {};
       res.data.forEach((item) => {
@@ -306,7 +323,7 @@ export default function ReturnPage() {
             <div className="code-input-group">
               <input
                 className="form-input code-input"
-                placeholder="Masukkan kode peminjaman atau scan barcode..."
+                placeholder="Masukkan kode peminjaman atau scan QR..."
                 value={receiptQuery}
                 onChange={(e) => setReceiptQuery(e.target.value)}
                 onKeyPress={(e) => {
@@ -324,11 +341,11 @@ export default function ReturnPage() {
                   setShowScanner(true);
                 }}
               >
-                📷 Scan Barcode
+                📷 Scan QR
               </button>
             </div>
             <p className="form-hint">
-              💡 Scan barcode dari struk peminjaman atau masukkan kode secara manual
+              💡 Scan QR pada struk peminjaman atau masukkan kode secara manual
             </p>
           </div>
         </div>
@@ -387,12 +404,12 @@ export default function ReturnPage() {
                 </div>
               )}
             </div>
-            
+
             {/* Status Messages */}
             {(selectedTransaction.status === 'complete' || selectedTransaction.status === 'completed') && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '16px', 
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
                 borderRadius: '12px',
                 border: '2px solid #86efac',
@@ -431,11 +448,11 @@ export default function ReturnPage() {
                 </button>
               </div>
             )}
-            
+
             {(selectedTransaction.status === 'pending_payment' || selectedTransaction.status === 'partially_returned') && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '16px', 
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
                 borderRadius: '12px',
                 border: '2px solid #fcd34d',
@@ -446,7 +463,7 @@ export default function ReturnPage() {
                   Transaksi Memiliki Masalah
                 </h4>
                 <p style={{ margin: '0 0 16px 0', color: '#78350f', fontSize: '14px' }}>
-                  {selectedTransaction.status === 'pending_payment' 
+                  {selectedTransaction.status === 'pending_payment'
                     ? 'Siswa belum menyelesaikan pembayaran denda atau beberapa buku belum dikembalikan.'
                     : 'Beberapa buku belum dikembalikan atau ada masalah lainnya.'}
                 </p>
@@ -492,132 +509,132 @@ export default function ReturnPage() {
       )}
 
       {/* Transaction Items - Only show if transaction is ongoing or has issues */}
-      {selectedTransaction && 
-       transactionItems.length > 0 && 
-       (selectedTransaction.status === 'ongoing' || 
-        selectedTransaction.status === 'pending_payment' || 
-        selectedTransaction.status === 'partially_returned') && (
-        <div className="form-card">
-          <div className="form-card-header">
-            <span className="form-card-icon">📚</span>
-            <h3 className="form-card-title">Daftar Buku yang Dipinjam</h3>
-          </div>
-          <div className="form-card-body">
-            <div className="items-list">
-              {transactionItems.map((item) => {
-                const isSelected = selectedItems[item.itemId]?.selected || false;
-                const itemData = selectedItems[item.itemId] || {
-                  selected: false,
-                  condition: 'good',
-                  fine: 0,
-                  notes: ''
-                };
-
-                return (
-                  <div key={item.itemId} className={`item-card ${isSelected ? 'selected' : ''}`}>
-                    <div className="item-header">
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleItemSelection(item.itemId)}
-                        />
-                        <span className="item-title">{item.book?.title || 'Buku tidak ditemukan'}</span>
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-icon btn-scan-small"
-                        onClick={() => {
-                          setScanType('book');
-                          setShowScanner(true);
-                        }}
-                        title="Scan QR Buku"
-                      >
-                        📷
-                      </button>
-                    </div>
-                    {item.book && (
-                      <div className="item-meta">
-                        <span>Penulis: {item.book.author || '-'}</span>
-                        <span>Kode: {item.item?.uniqueCode || '-'}</span>
-                      </div>
-                    )}
-                    {isSelected && (
-                      <div className="item-conditions">
-                        <label className="form-label">
-                          Kondisi
-                          <select
-                            className="form-input"
-                            value={itemData.condition}
-                            onChange={(e) => updateItemCondition(item.itemId, 'condition', e.target.value)}
-                          >
-                            <option value="good">✅ Baik</option>
-                            <option value="damaged">⚠️ Rusak</option>
-                            <option value="lost">❌ Hilang</option>
-                          </select>
-                        </label>
-                        {(itemData.condition === 'lost' || itemData.condition === 'damaged') && (
-                          <>
-                            <label className="form-label">
-                              Denda (Rp)
-                              <input
-                                type="number"
-                                className="form-input"
-                                min="0"
-                                value={itemData.fine}
-                                onChange={(e) => updateItemCondition(item.itemId, 'fine', e.target.value)}
-                                placeholder="0"
-                              />
-                            </label>
-                            <label className="form-label">
-                              Catatan
-                              <textarea
-                                className="form-input"
-                                value={itemData.notes}
-                                onChange={(e) => updateItemCondition(item.itemId, 'notes', e.target.value)}
-                                placeholder="Catatan tambahan..."
-                                rows="2"
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+      {selectedTransaction &&
+        transactionItems.length > 0 &&
+        (selectedTransaction.status === 'ongoing' ||
+          selectedTransaction.status === 'pending_payment' ||
+          selectedTransaction.status === 'partially_returned') && (
+          <div className="form-card">
+            <div className="form-card-header">
+              <span className="form-card-icon">📚</span>
+              <h3 className="form-card-title">Daftar Buku yang Dipinjam</h3>
             </div>
-            {Object.values(selectedItems).filter((item) => item.selected).length > 0 && (
-              <div className="return-summary">
-                <div className="summary-row">
-                  <span>Total Denda:</span>
-                  <strong>Rp {calculateTotalFine().toLocaleString('id-ID')}</strong>
-                </div>
-                {calculateTotalFine() > 0 && (
-                  <div style={{ marginTop: '12px' }}>
-                    <label className="form-label">
-                      Status Pembayaran
-                      <select
-                        className="form-input"
-                        value={paymentStatus}
-                        onChange={(e) => setPaymentStatus(e.target.value)}
-                      >
-                        <option value="paid">💳 Bayar Langsung</option>
-                        <option value="pending">⏳ Bayar Nanti</option>
-                      </select>
-                    </label>
-                    <p className="form-hint">
-                      {paymentStatus === 'paid' 
-                        ? '✅ Transaksi akan langsung selesai setelah pengembalian'
-                        : '⚠️ Transaksi akan menunggu pembayaran denda, perlu konfirmasi lagi nanti'}
-                    </p>
-                  </div>
-                )}
+            <div className="form-card-body">
+              <div className="items-list">
+                {transactionItems.map((item) => {
+                  const isSelected = selectedItems[item.itemId]?.selected || false;
+                  const itemData = selectedItems[item.itemId] || {
+                    selected: false,
+                    condition: 'good',
+                    fine: 0,
+                    notes: ''
+                  };
+
+                  return (
+                    <div key={item.itemId} className={`item-card ${isSelected ? 'selected' : ''}`}>
+                      <div className="item-header">
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleItemSelection(item.itemId)}
+                          />
+                          <span className="item-title">{item.book?.title || 'Buku tidak ditemukan'}</span>
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-icon btn-scan-small"
+                          onClick={() => {
+                            setScanType('book');
+                            setShowScanner(true);
+                          }}
+                          title="Scan QR Buku"
+                        >
+                          📷
+                        </button>
+                      </div>
+                      {item.book && (
+                        <div className="item-meta">
+                          <span>Penulis: {item.book.author || '-'}</span>
+                          <span>Kode: {item.item?.uniqueCode || '-'}</span>
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="item-conditions">
+                          <label className="form-label">
+                            Kondisi
+                            <select
+                              className="form-input"
+                              value={itemData.condition}
+                              onChange={(e) => updateItemCondition(item.itemId, 'condition', e.target.value)}
+                            >
+                              <option value="good">✅ Baik</option>
+                              <option value="damaged">⚠️ Rusak</option>
+                              <option value="lost">❌ Hilang</option>
+                            </select>
+                          </label>
+                          {(itemData.condition === 'lost' || itemData.condition === 'damaged') && (
+                            <>
+                              <label className="form-label">
+                                Denda (Rp)
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  min="0"
+                                  value={itemData.fine}
+                                  onChange={(e) => updateItemCondition(item.itemId, 'fine', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </label>
+                              <label className="form-label">
+                                Catatan
+                                <textarea
+                                  className="form-input"
+                                  value={itemData.notes}
+                                  onChange={(e) => updateItemCondition(item.itemId, 'notes', e.target.value)}
+                                  placeholder="Catatan tambahan..."
+                                  rows="2"
+                                />
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            )}
+              {Object.values(selectedItems).filter((item) => item.selected).length > 0 && (
+                <div className="return-summary">
+                  <div className="summary-row">
+                    <span>Total Denda:</span>
+                    <strong>Rp {calculateTotalFine().toLocaleString('id-ID')}</strong>
+                  </div>
+                  {calculateTotalFine() > 0 && (
+                    <div style={{ marginTop: '12px' }}>
+                      <label className="form-label">
+                        Status Pembayaran
+                        <select
+                          className="form-input"
+                          value={paymentStatus}
+                          onChange={(e) => setPaymentStatus(e.target.value)}
+                        >
+                          <option value="paid">💳 Bayar Langsung</option>
+                          <option value="pending">⏳ Bayar Nanti</option>
+                        </select>
+                      </label>
+                      <p className="form-hint">
+                        {paymentStatus === 'paid'
+                          ? '✅ Transaksi akan langsung selesai setelah pengembalian'
+                          : '⚠️ Transaksi akan menunggu pembayaran denda, perlu konfirmasi lagi nanti'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {selectedTransaction && Object.values(selectedItems).filter((item) => item.selected).length > 0 && (
         <div className="form-card">
@@ -692,7 +709,7 @@ export default function ReturnPage() {
                   QR Code Pengembalian
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                  <img 
+                  <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(returnSuccess.receiptNumber)}`}
                     alt={`QR Code ${returnSuccess.receiptNumber}`}
                     style={{ width: '200px', height: '200px', border: '2px solid #e2e8f0', borderRadius: '8px', padding: '8px', background: 'white' }}
@@ -766,36 +783,44 @@ export default function ReturnPage() {
       {/* QR Scanner */}
       {showScanner && (
         <QrScanner
-          onResult={(code) => {
+          onResult={async (code) => {
             const trimmed = (code || '').trim();
-            if (!trimmed) return;
-            
-            if (scanType === 'receipt') {
-              setReceiptQuery(trimmed);
-              searchByReceipt(trimmed);
-            } else if (scanType === 'book') {
-              // Find item by code and auto-select
-              const item = transactionItems.find(
-                (i) =>
-                  i.item?.uniqueCode === trimmed || // barcode unik item
-                  i.itemId === trimmed || // id item
-                  i.book?.id === trimmed || // QR buku (bookId) - dukung scan book-level QR
-                  i.bookId === trimmed || // fallback jika bookId ada di record
-                  i.item?.bookId === trimmed // fallback jika bookId tersimpan di item
-              );
-              if (item) {
-                if (!selectedItems[item.itemId]?.selected) {
-                  toggleItemSelection(item.itemId);
-                }
-                setMessage(`✅ Buku "${item.book?.title || trimmed}" berhasil dipilih`);
-              } else {
-                setMessage(`⚠️ Buku dengan kode ${trimmed} tidak ditemukan dalam transaksi ini`);
-              }
-            } else if (scanType === 'found') {
-              setFoundBookData((prev) => ({ ...prev, code: trimmed }));
-              setMessage(`✅ Kode ${trimmed} berhasil ditambahkan`);
+            if (!trimmed) {
+              setShowScanner(false);
+              return;
             }
-            setShowScanner(false);
+
+            try {
+              if (scanType === 'receipt') {
+                setReceiptQuery(trimmed);
+                await searchByReceipt(trimmed);
+              } else if (scanType === 'book') {
+                const item = transactionItems.find(
+                  (i) =>
+                    i.item?.uniqueCode === trimmed ||
+                    i.itemId === trimmed ||
+                    i.book?.id === trimmed ||
+                    i.bookId === trimmed ||
+                    i.item?.bookId === trimmed
+                );
+                if (item) {
+                  if (!selectedItems[item.itemId]?.selected) {
+                    toggleItemSelection(item.itemId);
+                  }
+                  setMessage(`✅ Buku "${item.book?.title || trimmed}" berhasil dipilih`);
+                } else {
+                  setMessage(`⚠️ Buku dengan kode ${trimmed} tidak ditemukan dalam transaksi ini`);
+                }
+              } else if (scanType === 'found') {
+                setFoundBookData((prev) => ({ ...prev, code: trimmed }));
+                setMessage(`✅ Kode ${trimmed} berhasil ditambahkan`);
+              }
+            } catch (e) {
+              console.error(e);
+              setMessage('❌ Gagal memproses hasil scan.');
+            } finally {
+              setShowScanner(false);
+            }
           }}
           onClose={() => setShowScanner(false)}
         />

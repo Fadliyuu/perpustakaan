@@ -1,15 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
   const [stats, setStats] = useState({
     booksToday: 0,
     activeStudents: 0,
-    overdueBooks: 0
+    overdueBooks: 0,
   });
   const [loading, setLoading] = useState(true);
+
+  // Particle canvas animation
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const particles = Array.from({ length: 80 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.4 + 0.2,
+      dx: (Math.random() - 0.5) * 0.25,
+      dy: (Math.random() - 0.5) * 0.25,
+      opacity: Math.random() * 0.35 + 0.05,
+      hue: [142, 155, 168][Math.floor(Math.random() * 3)],
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p) => {
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.opacity})`;
+        ctx.fill();
+      });
+
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(34, 197, 94, ${0.04 * (1 - dist / 100)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     loadStats();
@@ -17,16 +83,13 @@ export default function LandingPage() {
 
   const loadStats = async () => {
     try {
-      // Get today's date range
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayEnd = new Date(today);
       todayEnd.setHours(23, 59, 59, 999);
 
-      // Try to get data - handle 401 gracefully (no auth required for landing page)
       const [booksRes, studentsRes, transactionsRes] = await Promise.all([
         api.get('/books').catch((err) => {
-          // If 401, return empty array (no auth)
           if (err.response?.status === 401) return { data: [] };
           throw err;
         }).catch(() => ({ data: [] })),
@@ -37,208 +100,253 @@ export default function LandingPage() {
         api.get('/transactions').catch((err) => {
           if (err.response?.status === 401) return { data: [] };
           throw err;
-        }).catch(() => ({ data: [] }))
+        }).catch(() => ({ data: [] })),
       ]);
 
       const books = booksRes?.data || [];
       const students = studentsRes?.data || [];
       const transactions = transactionsRes?.data || [];
 
-      // Count books borrowed today
       const booksToday = transactions.filter((t) => {
         if (!t.borrowDate) return false;
         const borrowDate = new Date(t.borrowDate);
         return borrowDate >= today && borrowDate <= todayEnd;
       }).length;
 
-      // Count active students (students with ongoing transactions)
       const activeStudentIds = new Set(
         transactions
           .filter((t) => t.status === 'ongoing')
           .map((t) => t.studentId)
           .filter(Boolean)
       );
-      const activeStudents = activeStudentIds.size || (students.length > 0 ? students.length : 0);
+      const activeStudents =
+        activeStudentIds.size || (students.length > 0 ? students.length : 0);
 
-      // Count overdue books
       const overdue = transactions.filter((t) => {
         if (t.status !== 'ongoing' || !t.dueDate) return false;
         return new Date(t.dueDate) < new Date();
       }).length;
 
-      setStats({
-        booksToday,
-        activeStudents,
-        overdueBooks: overdue
-      });
+      setStats({ booksToday, activeStudents, overdueBooks: overdue });
     } catch (err) {
       console.error('Failed to load stats:', err);
-      // Keep default values (0) on error
-      setStats({
-        booksToday: 0,
-        activeStudents: 0,
-        overdueBooks: 0
-      });
+      setStats({ booksToday: 0, activeStudents: 0, overdueBooks: 0 });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="landing-root">
-      <div className="landing-bg-orb orb-1" />
-      <div className="landing-bg-orb orb-2" />
-      <header className="landing-header">
-        <div className="landing-logo">
-          <img src="/Logo/logo.png" alt="Logo YP. Tunas Karya" className="landing-logo-img" />
+    <div className="lnd-root">
+      {/* Full-page particle canvas */}
+      <canvas ref={canvasRef} className="lnd-canvas" />
+
+      {/* Ambient orbs */}
+      <div className="lnd-orb lnd-orb-1" />
+      <div className="lnd-orb lnd-orb-2" />
+      <div className="lnd-orb lnd-orb-3" />
+
+      {/* ─── HEADER ─────────────────────────────── */}
+      <header className="lnd-header">
+        <div className="lnd-logo">
+          <img src="/Logo/logo.png" alt="Logo YP. Tunas Karya" className="lnd-logo-img" />
+          <div className="lnd-logo-text">
+            <span className="lnd-logo-name">Perpustakaan</span>
+            <span className="lnd-logo-sub">YP. Tunas Karya</span>
+          </div>
         </div>
         <button
           type="button"
-          className="btn-secondary"
+          className="lnd-login-btn"
           onClick={() => navigate('/login')}
         >
-          Login Admin / Petugas
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+            <polyline points="10 17 15 12 10 7" />
+            <line x1="15" y1="12" x2="3" y2="12" />
+          </svg>
+          Login Admin
         </button>
       </header>
 
-      <main className="landing-main">
-        <section className="landing-hero">
-          <div className="landing-hero-text">
-            <div className="landing-school-badge">
-              <span className="badge-icon">🏆</span>
-              <span>Akreditasi A</span>
+      {/* ─── HERO ────────────────────────────────── */}
+      <main className="lnd-main">
+        <section className="lnd-hero">
+          <div className="lnd-hero-left">
+            {/* Badge */}
+            <div className="lnd-badge">
+              <span className="lnd-badge-dot" />
+              <span>🏆 Akreditasi A — SMK Swasta Tunas Karya</span>
             </div>
-            <h1>
-              Sistem Perpustakaan Digital
-              <span> SMK Swasta Tunas Karya</span>
+
+            {/* Title */}
+            <h1 className="lnd-title">
+              Sistem Perpustakaan
+              <span className="lnd-title-accent"> Digital Modern</span>
             </h1>
-            <p className="landing-description">
-              Sistem modern berbasis QR Code untuk mengelola peminjaman buku perpustakaan. 
-              Scan QR, pilih siswa, cetak struk, dan pantau riwayat peminjaman langsung dari web &amp; Android.
+
+            {/* Description */}
+            <p className="lnd-desc">
+              Platform berbasis QR Code untuk mengelola peminjaman buku perpustakaan secara real-time.
+              Scan QR, pilih siswa, cetak struk, dan pantau riwayat langsung dari web.
             </p>
-            <div className="landing-school-info">
-              <div className="info-item">
-                <span className="info-icon">📍</span>
-                <span>Jl. Batang Kuis, Tanjung Sari, Batang Kuis, Deli Serdang, Sumatera Utara</span>
-              </div>
-              <div className="info-item">
-                <span className="info-icon">📞</span>
-                <span>061-7949099</span>
-              </div>
-              <div className="info-item">
-                <span className="info-icon">📧</span>
-                <span>smktunaskarya1@gmail.com</span>
-              </div>
+
+            {/* School info */}
+            <div className="lnd-info-box">
+              {[
+                { icon: '📍', text: 'Jl. Batang Kuis, Tanjung Sari, Batang Kuis, Deli Serdang, Sumatera Utara' },
+                { icon: '📞', text: '061-7949099' },
+                { icon: '📧', text: 'smktunaskarya1@gmail.com' },
+              ].map((item) => (
+                <div key={item.text} className="lnd-info-row">
+                  <span className="lnd-info-icon">{item.icon}</span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
             </div>
-            <div className="landing-hero-actions">
+
+            {/* CTA buttons */}
+            <div className="lnd-cta-row">
               <button
                 type="button"
-                className="btn-primary"
+                className="lnd-btn-primary"
                 onClick={() => navigate('/login')}
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
                 Mulai Masuk
               </button>
               <button
                 type="button"
-                className="btn-secondary"
+                className="lnd-btn-secondary"
                 onClick={() => navigate('/login')}
               >
                 Lihat Dashboard
               </button>
             </div>
-            <div className="landing-social-links">
-              <a href="https://www.instagram.com/smk_tunaskaryabkuis?igsh=NjByNzRpZGhqZGI0" target="_blank" rel="noopener noreferrer" className="social-link">
-                <span>📷</span> Instagram
+
+            {/* Social links */}
+            <div className="lnd-socials">
+              <a href="https://www.instagram.com/smk_tunaskaryabkuis?igsh=NjByNzRpZGhqZGI0" target="_blank" rel="noopener noreferrer" className="lnd-social">
+                📷 Instagram
               </a>
-              <a href="https://www.tiktok.com/@smks_tuskar_hebat?_r=1&_t=ZS-91y2IdHU0Lo" target="_blank" rel="noopener noreferrer" className="social-link">
-                <span>🎵</span> TikTok
+              <a href="https://www.tiktok.com/@smks_tuskar_hebat?_r=1&_t=ZS-91y2IdHU0Lo" target="_blank" rel="noopener noreferrer" className="lnd-social">
+                🎵 TikTok
               </a>
-              <a href="https://www.facebook.com/share/1AAZYsNs1y/" target="_blank" rel="noopener noreferrer" className="social-link">
-                <span>👥</span> Facebook
+              <a href="https://www.facebook.com/share/1AAZYsNs1y/" target="_blank" rel="noopener noreferrer" className="lnd-social">
+                👥 Facebook
               </a>
-              <a href="http://www.yptunaskarya.id" target="_blank" rel="noopener noreferrer" className="social-link">
-                <span>🌐</span> Website
+              <a href="http://www.yptunaskarya.id" target="_blank" rel="noopener noreferrer" className="lnd-social">
+                🌐 Website
               </a>
             </div>
           </div>
-          <div className="landing-hero-card">
-            <div className="landing-card-header">
-              <span className="card-icon">📚</span>
-              Tampilan Cepat Sistem
-            </div>
-            <div className="landing-card-body">
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>
-                  <div className="login-btn-spinner" style={{ margin: '0 auto 10px', width: '24px', height: '24px' }} />
-                  Memuat data...
-                </div>
-              ) : (
-                <>
-                  <div className="landing-metric-row">
-                    <span>Buku dipinjam hari ini</span>
-                    <strong>{stats.booksToday}</strong>
-                  </div>
-                  <div className="landing-metric-row">
-                    <span>Siswa aktif</span>
-                    <strong>{stats.activeStudents}</strong>
-                  </div>
-                  <div className="landing-metric-row">
-                    <span>Buku terlambat</span>
-                    <strong className="late">{stats.overdueBooks}</strong>
-                  </div>
-                </>
-              )}
-              <div className="landing-bar-chart">
-                <div className="bar bar-1" />
-                <div className="bar bar-2" />
-                <div className="bar bar-3" />
-                <div className="bar bar-4" />
+
+          {/* ── Hero right card ── */}
+          <div className="lnd-hero-right">
+            <div className="lnd-card">
+              <div className="lnd-card-header">
+                <span className="lnd-card-icon">📚</span>
+                <span>Tampilan Cepat Sistem</span>
+                <span className="lnd-card-live">● LIVE</span>
               </div>
-              <div className="landing-jurusan">
-                <h4>Program Keahlian</h4>
-                <div className="jurusan-list">
-                  <span className="jurusan-badge">Otomatisasi & Tata Kelola Perkantoran</span>
-                  <span className="jurusan-badge">Akuntansi & Keuangan Lembaga</span>
-                  <span className="jurusan-badge">Perhotelan</span>
-                  <span className="jurusan-badge">Tata Boga</span>
+
+              <div className="lnd-card-body">
+                {loading ? (
+                  <div className="lnd-loading">
+                    <div className="lnd-spinner" />
+                    <span>Memuat data...</span>
+                  </div>
+                ) : (
+                  <div className="lnd-metrics">
+                    <div className="lnd-metric">
+                      <span className="lnd-metric-label">Buku dipinjam hari ini</span>
+                      <span className="lnd-metric-value">{stats.booksToday}</span>
+                    </div>
+                    <div className="lnd-metric">
+                      <span className="lnd-metric-label">Siswa aktif</span>
+                      <span className="lnd-metric-value">{stats.activeStudents}</span>
+                    </div>
+                    <div className="lnd-metric">
+                      <span className="lnd-metric-label">Buku terlambat</span>
+                      <span className="lnd-metric-value lnd-metric-danger">{stats.overdueBooks}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mini bar chart */}
+                <div className="lnd-bars">
+                  <div className="lnd-bar" style={{ height: '40%', animationDelay: '0s' }} />
+                  <div className="lnd-bar" style={{ height: '75%', animationDelay: '0.15s' }} />
+                  <div className="lnd-bar" style={{ height: '55%', animationDelay: '0.3s' }} />
+                  <div className="lnd-bar" style={{ height: '85%', animationDelay: '0.45s' }} />
+                  <div className="lnd-bar" style={{ height: '60%', animationDelay: '0.6s' }} />
+                  <div className="lnd-bar" style={{ height: '90%', animationDelay: '0.75s' }} />
+                  <div className="lnd-bar" style={{ height: '70%', animationDelay: '0.9s' }} />
                 </div>
+
+                {/* Program keahlian */}
+                <div className="lnd-jurusan">
+                  <h4 className="lnd-jurusan-title">Program Keahlian</h4>
+                  <div className="lnd-jurusan-grid">
+                    {[
+                      'Otomatisasi & Tata Kelola Perkantoran',
+                      'Akuntansi & Keuangan Lembaga',
+                      'Perhotelan',
+                      'Tata Boga',
+                    ].map((j) => (
+                      <span key={j} className="lnd-jurusan-chip">{j}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="lnd-card-foot">
+                  Perpustakaan digital untuk layanan yang lebih cepat, rapi, dan modern.
+                </p>
               </div>
-              <p className="landing-card-foot">
-                Sistem perpustakaan digital yang dirancang untuk layanan cepat, rapi, dan modern.
-              </p>
             </div>
           </div>
         </section>
 
-        <section className="landing-features">
-          <div className="landing-feature">
-            <div className="feature-icon">📱</div>
-            <h3>Scan QR dari Android</h3>
-            <p>
-              Petugas cukup mengarahkan kamera ponsel ke QR code buku. Sistem otomatis mengenali
-              kode dan menambahkannya ke transaksi peminjaman.
-            </p>
-          </div>
-          <div className="landing-feature">
-            <div className="feature-icon">🖨️</div>
-            <h3>Struk Digital &amp; Cetak</h3>
-            <p>
-              Setiap peminjaman menghasilkan surat peminjaman yang bisa langsung ditandatangani
-              siswa dan petugas, baik secara fisik maupun digital.
-            </p>
-          </div>
-          <div className="landing-feature">
-            <div className="feature-icon">🚀</div>
-            <h3>Siap Dikembangkan</h3>
-            <p>
-              Arsitektur backend &amp; frontend terpisah, siap diintegrasikan dengan sistem sekolah
-              lain, notifikasi, dan analitik lanjutan.
-            </p>
-          </div>
+        {/* ─── FEATURE SECTION ──────────────────── */}
+        <section className="lnd-features">
+          {[
+            {
+              icon: '📱',
+              title: 'Scan QR dari Android',
+              desc: 'Petugas cukup mengarahkan kamera ponsel ke QR code buku. Sistem otomatis mengenali kode dan menambahkannya ke transaksi peminjaman.',
+              color: '#22c55e',
+            },
+            {
+              icon: '🖨️',
+              title: 'Struk Digital & Cetak',
+              desc: 'Setiap peminjaman menghasilkan surat peminjaman yang bisa langsung ditandatangani siswa dan petugas, baik secara fisik maupun digital.',
+              color: '#14b8a6',
+            },
+            {
+              icon: '🚀',
+              title: 'Siap Dikembangkan',
+              desc: 'Arsitektur backend & frontend terpisah, siap diintegrasikan dengan sistem sekolah lain, notifikasi, dan analitik lanjutan.',
+              color: '#34d399',
+            },
+          ].map((feat) => (
+            <div key={feat.title} className="lnd-feat" style={{ '--feat-color': feat.color }}>
+              <div className="lnd-feat-icon">{feat.icon}</div>
+              <h3 className="lnd-feat-title">{feat.title}</h3>
+              <p className="lnd-feat-desc">{feat.desc}</p>
+            </div>
+          ))}
         </section>
+
+        {/* ─── FOOTER ───────────────────────────── */}
+        <footer className="lnd-footer">
+          <span className="lnd-footer-dot" />
+          <span>© 2025 Perpustakaan YP. Tunas Karya — Sistem Perpustakaan Digital</span>
+        </footer>
       </main>
     </div>
   );
 }
-
-

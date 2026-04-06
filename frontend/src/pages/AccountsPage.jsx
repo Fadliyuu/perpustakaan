@@ -73,14 +73,14 @@ export default function AccountsPage() {
           setSaving(false);
           return;
         }
-        
+
         const userData = {
           username: form.username.trim(),
           password: password,
           role: form.role,
           name: form.name?.trim() || ''
         };
-        
+
         console.log('[AccountsPage] Creating user:', { username: userData.username, role: userData.role, hasPassword: !!userData.password });
         response = await api.post('/users', userData);
         console.log('[AccountsPage] User created:', response.data);
@@ -158,56 +158,56 @@ export default function AccountsPage() {
           </h3>
         </div>
         <form className="form-grid account-form" onSubmit={handleSubmit}>
-        <label>
-          Username
-          <input
-            required
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
-            placeholder="mis: petugas1"
-          />
-        </label>
-        <label>
-          Nama (opsional)
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Nama lengkap"
-          />
-        </label>
-        <label>
-          Role
-          <select
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
-          >
-            {roles.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Password {editId ? '(kosongkan jika tidak diganti)' : ''}
-          <input
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            required={!editId}
-            placeholder={editId ? 'Biarkan kosong jika tidak diubah' : 'Minimal 6 karakter'}
-          />
-        </label>
-        <div className="form-actions">
-          <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Menyimpan...' : editId ? 'Simpan Perubahan' : 'Tambah Akun'}
-          </button>
-          {editId && (
-            <button type="button" className="btn-secondary" onClick={resetForm} disabled={saving}>
-              Batal
+          <label>
+            Username
+            <input
+              required
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              placeholder="mis: petugas1"
+            />
+          </label>
+          <label>
+            Nama (opsional)
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Nama lengkap"
+            />
+          </label>
+          <label>
+            Role
+            <select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              {roles.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Password {editId ? '(kosongkan jika tidak diganti)' : ''}
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required={!editId}
+              placeholder={editId ? 'Biarkan kosong jika tidak diubah' : 'Minimal 6 karakter'}
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Menyimpan...' : editId ? 'Simpan Perubahan' : 'Tambah Akun'}
             </button>
-          )}
-        </div>
+            {editId && (
+              <button type="button" className="btn-secondary" onClick={resetForm} disabled={saving}>
+                Batal
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -218,54 +218,54 @@ export default function AccountsPage() {
           </h3>
         </div>
         <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Nama</th>
-              <th>Role</th>
-              <th style={{ width: 140 }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+          <table className="table">
+            <thead>
               <tr>
-                <td colSpan="4" style={{ textAlign: 'center' }}>
-                  Memuat...
-                </td>
+                <th>Username</th>
+                <th>Nama</th>
+                <th>Role</th>
+                <th style={{ width: 140 }}>Aksi</th>
               </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: 16 }}>
-                  Belum ada akun
-                </td>
-              </tr>
-            ) : (
-              users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>{u.name || '-'}</td>
-                  <td>{roleBadge(u.role)}</td>
-                  <td>
-                    <div className="table-actions">
-                      <button type="button" className="btn-link" onClick={() => handleEdit(u)}>
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-link danger"
-                        onClick={() => handleDelete(u.id)}
-                        disabled={deletingId === u.id}
-                      >
-                        {deletingId === u.id ? '...' : 'Hapus'}
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center' }}>
+                    Memuat...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: 16 }}>
+                    Belum ada akun
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.username}</td>
+                    <td>{u.name || '-'}</td>
+                    <td>{roleBadge(u.role)}</td>
+                    <td>
+                      <div className="table-actions">
+                        <button type="button" className="btn-link" onClick={() => handleEdit(u)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-link danger"
+                          onClick={() => handleDelete(u.id)}
+                          disabled={deletingId === u.id}
+                        >
+                          {deletingId === u.id ? '...' : 'Hapus'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
