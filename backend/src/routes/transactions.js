@@ -361,11 +361,20 @@ router.put('/:id/resolve-pending', auth(['admin', 'officer']), async (req, res) 
 // Get transactions by student
 router.get('/', auth(['admin', 'officer', 'teacher', 'student']), async (req, res) => {
   try {
-    const { studentId } = req.query;
+    const { studentId: requestedStudentId } = req.query;
+    const user = req.user || {};
     let query = transactionsCol;
-    if (studentId) {
+
+    if (user.role === 'student') {
+      const studentId = user.studentId || user.id;
+      if (!studentId) {
+        return res.status(403).json({ message: 'Student ID tidak ditemukan pada token' });
+      }
       query = query.where('studentId', '==', studentId);
+    } else if (requestedStudentId) {
+      query = query.where('studentId', '==', requestedStudentId);
     }
+
     const snap = await query.orderBy('borrowDate', 'desc').limit(100).get();
     const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     res.json(data);
@@ -1451,5 +1460,4 @@ router.get('/export', auth(['admin', 'officer']), async (req, res) => {
 });
 
 module.exports = router;
-
 

@@ -10,11 +10,58 @@ getFirestore(); // ensure initialized
 
 const app = express();
 
-// CORS configuration
+// CORS: utamakan FRONTEND_URL; wildcard hanya untuk dev lokal dan tidak di production.
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000'
+];
+
+const isProd = process.env.NODE_ENV === 'production';
+const allowLanWildcard = process.env.ALLOW_LAN_DEV === '1' && !isProd;
+const extraOrigins = process.env.DEV_EXTRA_ORIGINS
+  ? process.env.DEV_EXTRA_ORIGINS.split(',').map((url) => url.trim())
+  : [];
+
+const configuredOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()).concat(extraOrigins)
+  : defaultOrigins.concat(extraOrigins);
+
+if (!process.env.FRONTEND_URL) {
+  console.warn('[CORS] FRONTEND_URL tidak di-set, menggunakan default origins dev.');
+}
+if (allowLanWildcard) {
+  console.warn('[CORS] ALLOW_LAN_DEV aktif (non-production) — origin wildcard diizinkan.');
+}
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL 
-    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Izinkan request tanpa Origin (mis. curl / health check)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (configuredOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Izinkan origin IP private LAN saat bukan production (untuk dev via perangkat lain)
+    const privateLanRegex =
+      /^https?:\/\/(?:(?:10\.)|(?:192\.168\.)|(?:172\.(1[6-9]|2\d|3[01])\.))[0-9.]+(?::\d+)?$/i;
+    if (!isProd && privateLanRegex.test(origin)) {
+      return callback(null, true);
+    }
+    // Jika ALLOW_LAN_DEV=1, tetap izinkan private LAN meski isProd=false sudah tertutup di atas
+    if (allowLanWildcard && privateLanRegex.test(origin)) {
+      return callback(null, true);
+    }
+    // Izinkan domain ngrok/grok sementara di dev
+    if (!isProd && /\.ngrok-free\.dev$/i.test(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin ${origin} tidak diizinkan`));
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -55,5 +102,3 @@ app.use((req, res) => {
 });
 
 module.exports = app;
-
-

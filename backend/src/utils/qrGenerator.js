@@ -11,11 +11,14 @@ async function generateAndUploadQR(text, folder = 'library-qrcodes') {
   try {
     // Generate QR code as data URL
     const qrDataUrl = await QRCode.toDataURL(text, {
-      errorCorrectionLevel: 'H',
+      // M = 15% ECC, cukup untuk label fisik tanpa membuat kode terlalu padat
+      errorCorrectionLevel: 'M',
       type: 'image/png',
       quality: 0.92,
-      margin: 1,
-      width: 300
+      // Quiet zone min. 4 module agar pemindaian stabil (default lib = 4)
+      margin: 4,
+      // Sedikit lebih besar untuk cetak & layar
+      width: 360
     });
 
     // Convert data URL to buffer

@@ -6,6 +6,12 @@ const { getFirestore } = require('../firebase');
 const router = express.Router();
 const db = getFirestore();
 const usersCol = db.collection('users');
+const JWT_SECRET = process.env.JWT_SECRET;
+const ENABLE_DEV_ADMIN = process.env.ENABLE_DEV_ADMIN === '1';
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET wajib di-set di environment.');
+}
 
 // Simple username/password login
 router.post('/login', async (req, res) => {
@@ -46,7 +52,7 @@ router.post('/login', async (req, res) => {
       studentId: user.studentId || null
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', {
+    const token = jwt.sign(payload, JWT_SECRET, {
       expiresIn: '8h'
     });
 
@@ -58,70 +64,46 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Dev-only helper: create default admin user if not exists
-// WARNING: sebaiknya dihapus di production
-// Support both GET and POST for easy testing
-router.get('/dev-create-admin', async (req, res) => {
-  try {
-    const username = 'admin';
-    const password = 'admin123';
+// Dev-only helper: hanya aktif jika ENABLE_DEV_ADMIN=1 dan tetap memerlukan auth admin
+if (ENABLE_DEV_ADMIN) {
+  console.warn('[AUTH] ENABLE_DEV_ADMIN aktif — hanya gunakan di lingkungan lokal.');
 
-    const snap = await usersCol.where('username', '==', username).limit(1).get();
-    if (!snap.empty) {
-      return res.json({ message: 'Admin user already exists' });
+  const { auth } = require('../middleware/auth');
+
+  const createDevAdmin = async (req, res) => {
+    try {
+      const username = 'admin';
+      const password = 'admin123';
+
+      const snap = await usersCol.where('username', '==', username).limit(1).get();
+      if (!snap.empty) {
+        return res.json({ message: 'Admin user already exists' });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const docRef = await usersCol.add({
+        username,
+        passwordHash,
+        role: 'admin',
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({
+        message: 'Dev admin user created',
+        username,
+        password,
+        id: docRef.id
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Failed to create dev admin user' });
     }
+  };
 
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const docRef = await usersCol.add({
-      username,
-      passwordHash,
-      role: 'admin',
-      createdAt: new Date().toISOString()
-    });
-
-    res.json({
-      message: 'Admin user created',
-      username,
-      password,
-      id: docRef.id
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to create admin user' });
-  }
-});
-
-router.post('/dev-create-admin', async (req, res) => {
-  try {
-    const username = 'admin';
-    const password = 'admin123';
-
-    const snap = await usersCol.where('username', '==', username).limit(1).get();
-    if (!snap.empty) {
-      return res.json({ message: 'Admin user already exists' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const docRef = await usersCol.add({
-      username,
-      passwordHash,
-      role: 'admin',
-      createdAt: new Date().toISOString()
-    });
-
-    res.json({
-      message: 'Admin user created',
-      username,
-      password,
-      id: docRef.id
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to create admin user' });
-  }
-});
+  router.get('/dev-create-admin', auth(['admin']), createDevAdmin);
+  router.post('/dev-create-admin', auth(['admin']), createDevAdmin);
+}
 
 module.exports = router;
 

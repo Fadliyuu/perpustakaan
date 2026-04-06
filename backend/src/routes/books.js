@@ -183,8 +183,8 @@ router.post('/', auth(['admin', 'officer']), async (req, res) => {
       console.warn('Failed to generate QR for book:', qrErr.message);
     }
     
-    const batch = db.batch();
-    batch.set(docRef, {
+    // Simpan dokumen buku (commit terpisah agar payload kecil)
+    await docRef.set({
       title: title.trim(),
       author: author || '',
       category: category || '',
@@ -197,26 +197,33 @@ router.post('/', auth(['admin', 'officer']), async (req, res) => {
       updatedAt: now
     });
     
-    // Auto-generate items if copies > 0
+    // Auto-generate items if copies > 0, chunk per 400 write untuk hindari limit 10MB/500 writes
     const createdItemIds = [];
-    for (let i = 0; i < (totalCopies || 0); i++) {
-      const itemRef = itemsCol.doc();
-      const uniqueCode = `BOOK-${bookId}-${Date.now()}-${i}`;
-      batch.set(itemRef, {
-        bookId,
-        inventoryId: null,
-        uniqueCode,
-        barcode: uniqueCode,
-        status: 'available',
-        location: location || '',
-        branchId: '',
-        createdAt: now,
-        updatedAt: now
-      });
-      createdItemIds.push(itemRef.id);
+    const total = totalCopies || 0;
+    const chunkSize = 400;
+    let index = 0;
+    while (index < total) {
+      const batch = db.batch();
+      const end = Math.min(index + chunkSize, total);
+      for (let i = index; i < end; i++) {
+        const itemRef = itemsCol.doc();
+        const uniqueCode = `BOOK-${bookId}-${Date.now()}-${i}`;
+        batch.set(itemRef, {
+          bookId,
+          inventoryId: null,
+          uniqueCode,
+          barcode: uniqueCode,
+          status: 'available',
+          location: location || '',
+          branchId: '',
+          createdAt: now,
+          updatedAt: now
+        });
+        createdItemIds.push(itemRef.id);
+      }
+      await batch.commit();
+      index = end;
     }
-    
-    await batch.commit();
     
     const doc = await docRef.get();
     res.status(201).json({
