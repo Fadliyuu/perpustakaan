@@ -50,24 +50,41 @@ try {
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/users', require('./routes/users'));
 
-  // Fallback
+  // Fallback 404
   app.use((req, res) => {
-    res.status(404).json({ message: 'Not Found' });
+    res.status(404).json({ message: 'Not Found Endpoint', path: req.path });
+  });
+
+  // Global Error Handler untuk Express (Menangkap Error 500 bawaan yang bersifat HTML)
+  app.use((err, req, res, next) => {
+    console.error('Express Critical Error:', err);
+    res.status(500).json({
+      error: 'Internal Express Error',
+      message: err.message,
+      stack: err.stack,
+      hint: 'Terjadi kegagalan fungsi di dalam Express, kemungkinan data tidak valid atau bug.'
+    });
   });
 
 } catch (bootstrapError) {
   console.error("FATAL INITIALIZATION ERROR:", bootstrapError);
   // Jika server gagal diinisialisasi (misal Firebase gagal, JWT_SECRET kurang),
-  // kembalikan JSON error agar mudah di-debug dari frontend Vercel.
-  app.use(cors());
-  app.use((req, res) => {
+  // secara eksplisit ambil alih SEMUA request termasuk metode POST
+  app.use('*', (req, res) => {
     res.status(500).json({
       error: "API Bootstrap Failed",
       message: bootstrapError.message,
-      instruction: "Periksa pengaturan Environment Variables di Dashboard Vercel Anda.",
-      stack: process.env.NODE_ENV === 'production' ? undefined : bootstrapError.stack
+      instruction: "Terdapat masalah pada Environment Variable atau kunci konfigurasi. Harap pantau tab Function Logs Vercel."
     });
   });
 }
+
+// Handler super terakhir saat Vercel mencoba run serverless logic di luar context app
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
 
 module.exports = app;
