@@ -36,12 +36,17 @@ if (allowLanWildcard) {
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Izinkan request tanpa Origin (mis. curl / health check)
+    // Izinkan request tanpa Origin (mis. curl / health check / same-origin)
     if (!origin) {
       return callback(null, true);
     }
 
     if (configuredOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Izinkan Vercel deployment domains secara otomatis
+    if (/\.vercel\.app$/i.test(origin)) {
       return callback(null, true);
     }
 
@@ -60,7 +65,8 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(new Error(`Origin ${origin} tidak diizinkan`));
+    // Jangan throw Error agar tidak memicu 500 Internal Server Error, kembalikan false saja
+    return callback(null, false);
   },
   credentials: true,
   optionsSuccessStatus: 200
