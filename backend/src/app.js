@@ -39,6 +39,10 @@ try {
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
+  // Prefixed health for serverless path /api/health
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
 
   // Routers
   // Menggunakan require di dalam blok try untuk memastikan module-level error tertangkap
