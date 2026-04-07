@@ -9,3 +9,4 @@ module.exports = (req, res) => {
   // Delegate semua request ke Express app
   return app(req, res);
 };
+const app = require('../src/app'); module.exports = app;
