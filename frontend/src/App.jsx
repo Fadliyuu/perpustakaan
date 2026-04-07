@@ -28,25 +28,34 @@ function RequireAuth({ children }) {
 export default function App() {
   const deferredPromptRef = useRef(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [installPromptMode, setInstallPromptMode] = useState('beforeinstallprompt'); // 'beforeinstallprompt' | 'ios_fallback' | 'android_fallback'
 
   useEffect(() => {
     const PROMPTED_KEY = 'pwa_install_prompted_v1';
 
-    const isProbablyInstalled = () => {
-      // Standalone mode (Android/Edge PWA)
+    const isMobile = () =>
+      /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || '');
+
+    const isStandalone = () => {
+      // Android/Edge PWA
       try {
         if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
       } catch (_) {}
 
-      // iOS/Safari may not support getInstalledRelatedApps, so just ignore errors.
-      if ('getInstalledRelatedApps' in navigator) {
-        return false;
-      }
+      // iOS Safari
+      try {
+        if ('standalone' in navigator) return Boolean(navigator.standalone);
+      } catch (_) {}
 
       return false;
     };
 
+    const isProbablyInstalled = () => {
+      return isStandalone();
+    };
+
     if (isProbablyInstalled()) return;
+    if (!isMobile()) return;
 
     const onBeforeInstallPrompt = (e) => {
       // e is BeforeInstallPromptEvent
@@ -56,17 +65,40 @@ export default function App() {
       // Prompt hanya sekali per device/browser
       const alreadyPrompted = localStorage.getItem(PROMPTED_KEY);
       if (!alreadyPrompted) {
+        setInstallPromptMode('beforeinstallprompt');
         setShowInstallPrompt(true);
       }
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+
+    // Fallback: jika event belum pernah datang (sering terjadi di iOS/Safari
+    // atau kasus aplikasi belum memenuhi kriteria), tampilkan instruksi manual.
+    const alreadyPrompted = localStorage.getItem(PROMPTED_KEY);
+    const fallbackTimer = window.setTimeout(() => {
+      if (alreadyPrompted) return;
+      if (deferredPromptRef.current) return; // sudah dapat event, tidak perlu fallback
+
+      const ua = window.navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      setInstallPromptMode(isIOS ? 'ios_fallback' : 'android_fallback');
+      setShowInstallPrompt(true);
+    }, 2500);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const handleInstall = async () => {
     const deferredPrompt = deferredPromptRef.current;
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      // Fallback mode: tidak ada prompt otomatis, cukup tutup modal.
+      localStorage.setItem('pwa_install_prompted_v1', '1');
+      setShowInstallPrompt(false);
+      return;
+    }
 
     try {
       deferredPromptRef.current = deferredPrompt;
@@ -125,10 +157,17 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>
-              Install Aplikasi?
+              {installPromptMode === 'ios_fallback'
+                ? 'Tambah ke Layar Utama'
+                : 'Install Aplikasi?'}
             </div>
             <div style={{ color: '#475569', fontSize: 14, lineHeight: 1.4, marginBottom: 14 }}>
-              Tambahkan aplikasi ini ke layar utama untuk akses lebih cepat.
+              {installPromptMode === 'beforeinstallprompt' &&
+                'Tambahkan aplikasi ini ke layar utama untuk akses lebih cepat.'}
+              {installPromptMode === 'ios_fallback' &&
+                'Di iPhone/iPad, biasanya install lewat menu Share → "Add to Home Screen".'}
+              {installPromptMode === 'android_fallback' &&
+                'Di beberapa kondisi, prompt install tidak muncul otomatis. Gunakan menu browser → "Add to Home screen".'}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
@@ -145,7 +184,9 @@ export default function App() {
                 onClick={handleInstall}
                 style={{ padding: '10px 14px' }}
               >
-                Install
+                {installPromptMode === 'ios_fallback'
+                  ? 'Oke'
+                  : 'Install'}
               </button>
             </div>
           </div>
