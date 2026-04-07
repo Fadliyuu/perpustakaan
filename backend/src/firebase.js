@@ -22,9 +22,10 @@ function initFirebase() {
   try {
     // Option 1: Individual fields (RECOMMENDED for production)
     if (projectId && privateKey && clientEmail) {
-      // Replace escaped newlines in private key
-      const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
-      
+      // Bersihkan privateKey bila ter-paste dengan kutip (") dari Vercel
+      let formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+      formattedPrivateKey = formattedPrivateKey.replace(/^"|"$/g, '');
+
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: projectId,
@@ -48,21 +49,19 @@ function initFirebase() {
       }
     }
     // Option 3: File path (for local development only)
-    else if (serviceAccountPath) {
-      const path = require('path');
+    else if (serviceAccountPath && require('fs').existsSync(serviceAccountPath)) {
       const fullPath = path.resolve(serviceAccountPath);
       admin.initializeApp({
         credential: admin.credential.cert(fullPath)
       });
       console.log('✓ Firebase initialized using service account file:', fullPath);
     }
-    // Option 4: Fallback to applicationDefault() (for GCP environments)
+    // Opsi 4: TIDAK ADA KREDENSIAL / ERROR (Mencegah `applicationDefault()` GCP bawaan Vercel)
     else {
-      console.log('⚠️  No Firebase credentials found in env, trying applicationDefault()...');
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault()
-      });
-      console.log('✓ Firebase initialized using applicationDefault()');
+      throw new Error(
+        `Firebase Credentials ERROR! Salah satu env berikut kosong/belum tersimpan di Vercel: ` +
+        `PROJECT_ID: ${!!projectId}, CLIENT_EMAIL: ${!!clientEmail}, PRIVATE_KEY: ${!!privateKey}`
+      );
     }
   } catch (err) {
     console.error('❌ Firebase initialization error:', err.message);

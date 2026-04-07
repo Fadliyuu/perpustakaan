@@ -1,104 +1,90 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { configureCloudinary } = require('./cloudinary');
-const { getFirestore } = require('./firebase');
+let app = express();
 
-dotenv.config();
-configureCloudinary();
-getFirestore(); // ensure initialized
+try {
+  const { configureCloudinary } = require('./cloudinary');
+  const { getFirestore } = require('./firebase');
+  
+  dotenv.config();
+  configureCloudinary();
+  getFirestore(); // ensure initialized
 
-const app = express();
+  // CORS: Mengizinkan SEMUA origin agar proses login / akses API dari Vercel/localhost terjamin tanpa error
+  const corsOptions = {
+    // origin: true akan memantulkan origin dari request pengirim, sehingga semua diizinkan dengan kredensial
+    origin: true,
+    credentials: true,
+    optionsSuccessStatus: 200
+  };
 
-// CORS: utamakan FRONTEND_URL; wildcard hanya untuk dev lokal dan tidak di production.
-const defaultOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:3000'
-];
+  app.use(cors(corsOptions));
+  app.use(express.json());
 
-const isProd = process.env.NODE_ENV === 'production';
-const allowLanWildcard = process.env.ALLOW_LAN_DEV === '1' && !isProd;
-const extraOrigins = process.env.DEV_EXTRA_ORIGINS
-  ? process.env.DEV_EXTRA_ORIGINS.split(',').map((url) => url.trim())
-  : [];
-
-const configuredOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()).concat(extraOrigins)
-  : defaultOrigins.concat(extraOrigins);
-
-if (!process.env.FRONTEND_URL) {
-  console.warn('[CORS] FRONTEND_URL tidak di-set, menggunakan default origins dev.');
-}
-if (allowLanWildcard) {
-  console.warn('[CORS] ALLOW_LAN_DEV aktif (non-production) — origin wildcard diizinkan.');
-}
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Izinkan request tanpa Origin (mis. curl / health check)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (configuredOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // Izinkan origin IP private LAN saat bukan production (untuk dev via perangkat lain)
-    const privateLanRegex =
-      /^https?:\/\/(?:(?:10\.)|(?:192\.168\.)|(?:172\.(1[6-9]|2\d|3[01])\.))[0-9.]+(?::\d+)?$/i;
-    if (!isProd && privateLanRegex.test(origin)) {
-      return callback(null, true);
-    }
-    // Jika ALLOW_LAN_DEV=1, tetap izinkan private LAN meski isProd=false sudah tertutup di atas
-    if (allowLanWildcard && privateLanRegex.test(origin)) {
-      return callback(null, true);
-    }
-    // Izinkan domain ngrok/grok sementara di dev
-    if (!isProd && /\.ngrok-free\.dev$/i.test(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`Origin ${origin} tidak diizinkan`));
-  },
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
-app.use(express.json());
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Perpustakaan API - Backend is running',
-    status: 'ok',
-    time: new Date().toISOString(),
-    endpoints: {
-      health: '/health',
-      api: '/api'
-    }
+  // Root endpoint
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: 'Perpustakaan API - Backend is running',
+      status: 'ok',
+      time: new Date().toISOString(),
+      endpoints: {
+        health: '/health',
+        api: '/api'
+      }
+    });
   });
+
+  // Simple health check
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // Routers
+  // Menggunakan require di dalam blok try untuk memastikan module-level error tertangkap
+  app.use('/api/students', require('./routes/students'));
+  app.use('/api/books', require('./routes/books'));
+  app.use('/api/items', require('./routes/items'));
+  app.use('/api/transactions', require('./routes/transactions'));
+  app.use('/api/inventories', require('./routes/inventories'));
+  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/users', require('./routes/users'));
+
+  // Fallback 404
+  app.use((req, res) => {
+    res.status(404).json({ message: 'Not Found Endpoint', path: req.path });
+  });
+
+  // Global Error Handler untuk Express (Menangkap Error 500 bawaan yang bersifat HTML)
+  app.use((err, req, res, next) => {
+    console.error('Express Critical Error:', err);
+    res.status(500).json({
+      error: 'Internal Express Error',
+      message: err.message,
+      stack: err.stack,
+      hint: 'Terjadi kegagalan fungsi di dalam Express, kemungkinan data tidak valid atau bug.'
+    });
+  });
+
+} catch (bootstrapError) {
+  console.error("FATAL INITIALIZATION ERROR:", bootstrapError);
+  // Jika server gagal diinisialisasi (misal Firebase gagal, JWT_SECRET kurang),
+  // secara eksplisit ambil alih SEMUA request termasuk metode POST
+  app.use('*', (req, res) => {
+    res.status(500).json({
+      error: "API Bootstrap Failed",
+      message: bootstrapError.message,
+      instruction: "Terdapat masalah pada Environment Variable atau kunci konfigurasi. Harap pantau tab Function Logs Vercel."
+    });
+  });
+}
+
+// Handler super terakhir saat Vercel mencoba run serverless logic di luar context app
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
 });
-
-// Simple health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
-});
-
-// Routers
-app.use('/api/students', require('./routes/students'));
-app.use('/api/books', require('./routes/books'));
-app.use('/api/items', require('./routes/items'));
-app.use('/api/transactions', require('./routes/transactions'));
-app.use('/api/inventories', require('./routes/inventories'));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-
-// Fallback
-app.use((req, res) => {
-  res.status(404).json({ message: 'Not Found' });
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
 });
 
 module.exports = app;

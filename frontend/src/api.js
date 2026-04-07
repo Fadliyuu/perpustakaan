@@ -36,19 +36,28 @@ api.interceptors.request.use((config) => {
 
 // Handle 401 responses - token expired or invalid
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
+    // DETEKSI OTOMATIS BILA ADA ERROR 500 ATAU 400 DARI SERVER
+    if (error.response && (error.response.status === 500 || error.response.status === 400)) {
+      const errorData = error.response.data;
+      const statusKode = error.response.status;
+      // Gunakan alert() agar pesan error dari server (e.g., 'User not found', 'Invalid credentials') langsung terbaca di layar!
+      alert(`INFO SERVER (${statusKode}):\n\n${JSON.stringify(errorData, null, 2)}`);
+    }
+
+    // Handle auth errors globally (auto logout if 401 Unauthorized)
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
       const isPublicRoute = currentPath === '/login' || currentPath === '/';
-
+      
       // Only clear token and redirect if we're in a protected route
       // Don't interfere with public routes trying to access data
       if (!isPublicRoute) {
-        // Token expired or invalid, clear storage
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        // Redirect to login
         window.location.href = '/login';
       }
       // For public routes, just let the error pass through
