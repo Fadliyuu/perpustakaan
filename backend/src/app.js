@@ -19,6 +19,8 @@ try {
     optionsSuccessStatus: 200
   };
 
+  // Pastikan preflight CORS (`OPTIONS`) selalu dijawab (sering jadi penyebab "Network Error" di axios).
+  app.options('*', cors(corsOptions));
   app.use(cors(corsOptions));
   app.use(express.json());
 
